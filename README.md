@@ -63,6 +63,7 @@ Headscale does not provide Tailscale-managed HTTPS certificates, so the tailnet 
 
 - Public DNS has `CNAME` records for `dashboard.balaur.space`, `desktop.balaur.space`, `paseo.balaur.space`, and `syncthing.balaur.space` pointing to `balaur.tailnet.balaur.space`.
 - Headscale MagicDNS overrides those names with the server's tailnet address (`100.64.0.1`) for connected clients.
+- Headscale provides Tailnet DNS globally and forwards other lookups to Cloudflare so operating systems use the private records outside the MagicDNS base domain.
 - nginx permits content only from Tailscale IPv4 and IPv6 ranges. The ACME challenges remain publicly reachable.
 
 The public DNS record must exist before deploying a new dashboard certificate configuration.

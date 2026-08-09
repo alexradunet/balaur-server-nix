@@ -128,7 +128,11 @@
       dns = {
         magic_dns = true;
         base_domain = "tailnet.balaur.space";
-        override_local_dns = false;
+        override_local_dns = true;
+        nameservers.global = [
+          "1.1.1.1"
+          "1.0.0.1"
+        ];
         extra_records = map (name: {
           inherit name;
           type = "A";
@@ -247,7 +251,14 @@
       locations."/" = {
         proxyPass = "http://127.0.0.1:8383";
         proxyWebsockets = true;
+        recommendedProxySettings = false;
         extraConfig = ''
+          proxy_set_header Host 127.0.0.1:8383;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Forwarded-Host $host;
+          proxy_set_header X-Forwarded-Server $hostname;
           allow 100.64.0.0/10;
           allow fd7a:115c:a1e0::/48;
           deny all;
@@ -262,7 +273,14 @@
       locations."/" = {
         proxyPass = "http://127.0.0.1:6768";
         proxyWebsockets = true;
+        recommendedProxySettings = false;
         extraConfig = ''
+          proxy_set_header Host $host:$server_port;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Forwarded-Host $host;
+          proxy_set_header X-Forwarded-Server $hostname;
           allow 100.64.0.0/10;
           allow fd7a:115c:a1e0::/48;
           deny all;
@@ -415,6 +433,7 @@
     after = [ "web-desktop-vnc.service" ];
     partOf = [ "web-desktop-vnc.service" ];
     wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.procps ];
 
     serviceConfig = {
       DynamicUser = true;
