@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>balaur</title>
+    <style>
+      :root {
+        --background: #11140f;
+        --panel: #181c16;
+        --line: #31382b;
+        --text: #e8eddf;
+        --muted: #929c87;
+        --accent: #bddc70;
+        --offline: #dd806f;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--background);
+        color: var(--text);
+        font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      main { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 10vh 0 48px; }
+
+      header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 40px; }
+      h1 { margin: 0; font-size: clamp(32px, 7vw, 64px); font-weight: 500; letter-spacing: -0.08em; }
+      h1 span { color: var(--accent); }
+      #updated { color: var(--muted); font-size: 12px; }
+
+      .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
+      .metric { min-width: 0; padding: 18px; border-right: 1px solid var(--line); }
+      .metric:last-child { border-right: 0; }
+      .label { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+      .value { display: block; margin-top: 8px; font-size: clamp(18px, 3vw, 27px); white-space: nowrap; }
+      .bar { height: 2px; margin-top: 15px; overflow: hidden; background: var(--line); }
+      .bar i { display: block; width: 0; height: 100%; background: var(--accent); transition: width .35s ease; }
+
+      h2 { margin: 48px 0 14px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
+      .services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .service { display: flex; align-items: center; justify-content: space-between; min-height: 86px; padding: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; transition: border-color .15s, transform .15s; }
+      .service:hover { border-color: var(--accent); transform: translateY(-2px); }
+      .service small { color: var(--muted); }
+      .status { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+      .status.online { background: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
+      .status.offline { background: var(--offline); }
+      #error { display: none; margin-top: 18px; color: var(--offline); }
+
+      @media (max-width: 680px) {
+        main { padding-top: 48px; }
+        header { margin-bottom: 28px; }
+        .metrics { grid-template-columns: 1fr 1fr; }
+        .metric:nth-child(2) { border-right: 0; }
+        .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+        .services { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>balaur<span>.</span></h1>
+        <span id="updated">connecting</span>
+      </header>
+
+      <section class="metrics" aria-label="Host status">
+        <div class="metric"><span class="label">CPU</span><strong class="value" id="cpu">--</strong><div class="bar"><i id="cpu-bar"></i></div></div>
+        <div class="metric"><span class="label">Memory</span><strong class="value" id="memory">--</strong><div class="bar"><i id="memory-bar"></i></div></div>
+        <div class="metric"><span class="label">Disk</span><strong class="value" id="disk">--</strong><div class="bar"><i id="disk-bar"></i></div></div>
+        <div class="metric"><span class="label">Uptime</span><strong class="value" id="uptime">--</strong><div class="bar"><i style="width: 100%"></i></div></div>
+      </section>
+
+      <h2>Services</h2>
+      <section class="services">
+        <a class="service" id="headscale" href="https://headscale.balaur.space"><span>Headscale<br><small>Network control</small></span><i class="status"></i></a>
+        <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
+        <a class="service" id="opencode"><span>OpenCode<br><small>Development</small></span><i class="status"></i></a>
+      </section>
+      <p id="error">Host status is temporarily unavailable.</p>
+    </main>
+
+    <script>
+      const byId = (id) => document.getElementById(id);
+      byId("syncthing").href = `http://${location.hostname}:8384`;
+      byId("opencode").href = `http://${location.hostname}:4096`;
+
+      const bytes = (value) => {
+        const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+        let unit = 0;
+        while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+        return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+      };
+
+      const duration = (seconds) => {
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        return days ? `${days}d ${hours}h` : `${hours}h ${Math.floor((seconds % 3600) / 60)}m`;
+      };
+
+      async function refresh() {
+        try {
+          const response = await fetch("/api/status");
+          if (!response.ok) throw new Error(response.statusText);
+          const data = await response.json();
+          const cpu = data.cpu ?? 0;
+          byId("cpu").textContent = data.cpu === null ? "sampling" : `${cpu}%`;
+          byId("memory").textContent = `${bytes(data.memory.used)} / ${bytes(data.memory.total)}`;
+          byId("disk").textContent = `${bytes(data.disk.used)} / ${bytes(data.disk.total)}`;
+          byId("uptime").textContent = duration(data.uptime);
+          byId("cpu-bar").style.width = `${cpu}%`;
+          byId("memory-bar").style.width = `${data.memory.percent}%`;
+          byId("disk-bar").style.width = `${data.disk.percent}%`;
+          for (const service of data.services) {
+            const status = byId(service.id).querySelector(".status");
+            status.className = `status ${service.online ? "online" : "offline"}`;
+            status.title = service.online ? "Online" : "Offline";
+          }
+          byId("updated").textContent = new Date(data.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          byId("error").style.display = "none";
+        } catch (error) {
+          byId("updated").textContent = "disconnected";
+          byId("error").style.display = "block";
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 10000);
+    </script>
+  </body>
+</html>

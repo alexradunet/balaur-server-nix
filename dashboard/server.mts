@@ -1,0 +1,122 @@
+import { readFile } from "node:fs/promises";
+import { statfs } from "node:fs/promises";
+import { createServer } from "node:http";
+import { connect } from "node:net";
+
+const host = process.env.DASHBOARD_HOST ?? "0.0.0.0";
+const port = Number(process.env.DASHBOARD_PORT ?? "8080");
+const index = await readFile(new URL("index.html", import.meta.url));
+
+const services = [
+  { id: "headscale", name: "Headscale", host: "127.0.0.1", port: 8082 },
+  { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8384 },
+  { id: "opencode", name: "OpenCode", host: "127.0.0.1", port: 4096 },
+];
+
+let previousCpu: { idle: number; total: number } | undefined;
+
+async function cpuUsage(): Promise<number | null> {
+  const stat = await readFile("/proc/stat", "utf8");
+  const values = stat.split("\n", 1)[0].trim().split(/\s+/).slice(1).map(Number);
+  const idle = values[3] + (values[4] ?? 0);
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const current = { idle, total };
+
+  if (!previousCpu) {
+    previousCpu = current;
+    return null;
+  }
+
+  const elapsed = total - previousCpu.total;
+  const idleElapsed = idle - previousCpu.idle;
+  previousCpu = current;
+  return elapsed > 0 ? Math.round((1 - idleElapsed / elapsed) * 1000) / 10 : 0;
+}
+
+async function memoryUsage(): Promise<{ used: number; total: number; percent: number }> {
+  const memory = await readFile("/proc/meminfo", "utf8");
+  const values = new Map(
+    memory.trim().split("\n").map((line) => {
+      const [key, value] = line.split(/:\s+/);
+      return [key, Number.parseInt(value, 10) * 1024];
+    }),
+  );
+  const total = values.get("MemTotal") ?? 0;
+  const available = values.get("MemAvailable") ?? 0;
+  const used = total - available;
+  return { used, total, percent: total ? Math.round((used / total) * 1000) / 10 : 0 };
+}
+
+async function diskUsage(): Promise<{ used: number; total: number; percent: number }> {
+  const disk = await statfs("/");
+  const total = disk.blocks * disk.bsize;
+  const available = disk.bavail * disk.bsize;
+  const used = total - available;
+  return { used, total, percent: total ? Math.round((used / total) * 1000) / 10 : 0 };
+}
+
+function serviceOnline(service: (typeof services)[number]): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: service.host, port: service.port });
+    const finish = (online: boolean) => {
+      socket.destroy();
+      resolve(online);
+    };
+    socket.setTimeout(700);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
+}
+
+async function status() {
+  const [cpu, memory, disk, serviceStates, uptime] = await Promise.all([
+    cpuUsage(),
+    memoryUsage(),
+    diskUsage(),
+    Promise.all(services.map(serviceOnline)),
+    readFile("/proc/uptime", "utf8"),
+  ]);
+
+  return {
+    host: "balaur",
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(Number.parseFloat(uptime) || 0),
+    cpu,
+    memory,
+    disk,
+    services: services.map(({ id, name }, index) => ({ id, name, online: serviceStates[index] })),
+  };
+}
+
+const server = createServer(async (request, response) => {
+  try {
+    if (request.method === "GET" && request.url === "/") {
+      response.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+      });
+      response.end(index);
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/api/status") {
+      response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      response.end(JSON.stringify(await status()));
+      return;
+    }
+
+    response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    response.end("Not found\n");
+  } catch (error) {
+    console.error(error);
+    response.writeHead(500, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    response.end(JSON.stringify({ error: "Status unavailable" }));
+  }
+});
+
+server.listen(port, host, () => console.log(`Dashboard listening on http://${host}:${port}`));

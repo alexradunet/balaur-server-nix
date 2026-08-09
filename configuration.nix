@@ -118,7 +118,7 @@
   services.headscale = {
     enable = true;
     address = "127.0.0.1";
-    port = 8080;
+    port = 8082;
 
     settings = {
       server_url = "https://headscale.balaur.space";
@@ -141,7 +141,7 @@
       forceSSL = true;
 
       locations."/" = {
-        proxyPass = "http://127.0.0.1:8080";
+        proxyPass = "http://127.0.0.1:8082";
         proxyWebsockets = true;
       };
     };
@@ -156,6 +156,79 @@
     enable = true;
     openFirewall = true;
   };
+
+  services.syncthing = {
+    enable = true;
+    user = "alex";
+    group = "users";
+    dataDir = "/home/alex";
+    configDir = "/home/alex/.config/syncthing";
+    guiAddress = "0.0.0.0:8384";
+    openDefaultPorts = true;
+  };
+
+  # A dependency-free Node.js dashboard for host metrics and service links.
+  systemd.services.balaur-dashboard = {
+    description = "Balaur home dashboard";
+    after = [ "network.target" ];
+    wantedBy = [ "multi-user.target" ];
+
+    environment = {
+      DASHBOARD_HOST = "0.0.0.0";
+      DASHBOARD_PORT = "8080";
+    };
+
+    serviceConfig = {
+      DynamicUser = true;
+      ExecStart = "${pkgs.nodejs}/bin/node ${./dashboard}/server.mts";
+      Restart = "on-failure";
+      RestartSec = 5;
+
+      CapabilityBoundingSet = "";
+      LockPersonality = true;
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectClock = true;
+      ProtectControlGroups = true;
+      ProtectHome = true;
+      ProtectHostname = true;
+      ProtectKernelLogs = true;
+      ProtectKernelModules = true;
+      ProtectKernelTunables = true;
+      ProtectSystem = "strict";
+      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      UMask = "0077";
+    };
+  };
+
+  # OpenCode is reachable only from authenticated devices on the tailnet.
+  systemd.services.opencode-web = {
+    description = "OpenCode web interface";
+    after = [ "network-online.target" "tailscaled.service" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+
+    environment.HOME = "/home/alex";
+
+    serviceConfig = {
+      User = "alex";
+      Group = "users";
+      WorkingDirectory = "/home/alex";
+      ExecStart = "${pkgs.opencode}/bin/opencode web --hostname 0.0.0.0 --port 4096";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+
+  networking.firewall.interfaces.tailscale0.allowedTCPPorts = [
+    4096
+    8080
+    8384
+  ];
 
   networking.firewall.allowedTCPPorts = [
     22
