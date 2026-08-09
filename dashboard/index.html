@@ -37,7 +37,7 @@
       .metric { min-width: 0; padding: 18px; border-right: 1px solid var(--line); }
       .metric:last-child { border-right: 0; }
       .label { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
-      .value { display: block; margin-top: 8px; font-size: clamp(18px, 3vw, 27px); white-space: nowrap; }
+      .value { display: block; margin-top: 8px; overflow: hidden; font-size: clamp(18px, 2.4vw, 27px); white-space: nowrap; }
       .bar { height: 2px; margin-top: 15px; overflow: hidden; background: var(--line); }
       .bar i { display: block; width: 0; height: 100%; background: var(--accent); transition: width .35s ease; }
 
@@ -77,7 +77,7 @@
 
       <h2>Services</h2>
       <section class="services">
-        <a class="service" id="headscale" href="https://headscale.balaur.space"><span>Headscale<br><small>Network control</small></span><i class="status"></i></a>
+        <a class="service" id="headscale" href="https://headscale.balaur.space/admin/"><span>Headscale<br><small>Network control</small></span><i class="status"></i></a>
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
         <a class="service" id="opencode"><span>OpenCode<br><small>Development</small></span><i class="status"></i></a>
       </section>
@@ -89,11 +89,13 @@
       byId("syncthing").href = `http://${location.hostname}:8384`;
       byId("opencode").href = `http://${location.hostname}:4096`;
 
-      const bytes = (value) => {
+      const storage = (used, total) => {
         const units = ["B", "KiB", "MiB", "GiB", "TiB"];
         let unit = 0;
-        while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
-        return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+        let divisor = 1;
+        while (total / divisor >= 1024 && unit < units.length - 1) { divisor *= 1024; unit++; }
+        const format = (value) => (value / divisor).toFixed(value / divisor >= 10 || unit === 0 ? 0 : 1);
+        return `${format(used)} / ${format(total)} ${units[unit]}`;
       };
 
       const duration = (seconds) => {
@@ -109,8 +111,8 @@
           const data = await response.json();
           const cpu = data.cpu ?? 0;
           byId("cpu").textContent = data.cpu === null ? "sampling" : `${cpu}%`;
-          byId("memory").textContent = `${bytes(data.memory.used)} / ${bytes(data.memory.total)}`;
-          byId("disk").textContent = `${bytes(data.disk.used)} / ${bytes(data.disk.total)}`;
+          byId("memory").textContent = storage(data.memory.used, data.memory.total);
+          byId("disk").textContent = storage(data.disk.used, data.disk.total);
           byId("uptime").textContent = duration(data.uptime);
           byId("cpu-bar").style.width = `${cpu}%`;
           byId("memory-bar").style.width = `${data.memory.percent}%`;

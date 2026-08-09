@@ -1,4 +1,4 @@
-{ herdrPackage, pkgs, ... }:
+{ paseoRelayPackage, pkgs, ... }:
 
 {
   imports = [
@@ -131,6 +131,33 @@
     };
   };
 
+  services.headplane = {
+    enable = true;
+
+    settings = {
+      server = {
+        base_url = "https://headscale.balaur.space";
+        cookie_secret_path = "/var/lib/headplane/cookie-secret";
+      };
+
+      headscale = {
+        url = "http://127.0.0.1:8082";
+        public_url = "https://headscale.balaur.space";
+      };
+
+      # Headscale's declarative Nix configuration is intentionally read-only.
+      integration.proc.enabled = false;
+    };
+  };
+
+  # Keep the session secret out of the world-readable Nix store.
+  systemd.services.headplane.preStart = ''
+    if [[ ! -s /var/lib/headplane/cookie-secret ]]; then
+      umask 077
+      ${pkgs.openssl}/bin/openssl rand -hex 16 > /var/lib/headplane/cookie-secret
+    fi
+  '';
+
   services.nginx = {
     enable = true;
     recommendedProxySettings = true;
@@ -140,8 +167,25 @@
       enableACME = true;
       forceSSL = true;
 
+      locations."= /".return = "302 /admin/";
+
+      locations."/admin/" = {
+        proxyPass = "http://127.0.0.1:3000";
+        proxyWebsockets = true;
+      };
+
       locations."/" = {
         proxyPass = "http://127.0.0.1:8082";
+        proxyWebsockets = true;
+      };
+    };
+
+    virtualHosts."relay.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
+
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:4000";
         proxyWebsockets = true;
       };
     };
@@ -165,6 +209,70 @@
     configDir = "/home/alex/.config/syncthing";
     guiAddress = "0.0.0.0:8384";
     openDefaultPorts = true;
+  };
+
+  # Paseo runs agents with Alex's development environment and uses our relay.
+  services.paseo = {
+    enable = true;
+    user = "alex";
+    group = "users";
+    dataDir = "/home/alex/.paseo";
+    listenAddress = "0.0.0.0";
+    hostnames = [
+      "balaur"
+      "balaur.tailnet.balaur.space"
+    ];
+
+    relay = {
+      enable = true;
+      mode = "remote";
+      host = "relay.balaur.space";
+      port = 443;
+      useTls = true;
+    };
+
+    environment.PASEO_RELAY_ENABLED = "true";
+  };
+
+  systemd.services.paseo-relay = {
+    description = "Paseo relay";
+    after = [ "network.target" ];
+    wantedBy = [ "multi-user.target" ];
+
+    environment = {
+      HOME = "/var/lib/paseo-relay";
+      PASEO_RELAY_HOST = "127.0.0.1";
+      PASEO_RELAY_PORT = "4000";
+      PASEO_RELAY_MIN_CLUSTER_SIZE = "1";
+    };
+
+    serviceConfig = {
+      DynamicUser = true;
+      StateDirectory = "paseo-relay";
+      WorkingDirectory = "/var/lib/paseo-relay";
+      ExecStart = "${paseoRelayPackage}/bin/paseo_relay start";
+      Restart = "on-failure";
+      RestartSec = 5;
+
+      CapabilityBoundingSet = "";
+      LockPersonality = true;
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectClock = true;
+      ProtectControlGroups = true;
+      ProtectHome = true;
+      ProtectHostname = true;
+      ProtectKernelLogs = true;
+      ProtectKernelModules = true;
+      ProtectKernelTunables = true;
+      ProtectSystem = "strict";
+      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      UMask = "0077";
+    };
   };
 
   # A dependency-free Node.js dashboard for host metrics and service links.
@@ -226,6 +334,7 @@
 
   networking.firewall.interfaces.tailscale0.allowedTCPPorts = [
     4096
+    6767
     8080
     8384
   ];
@@ -248,7 +357,7 @@
     wget
     htop
     tmux
-    herdrPackage
+    zellij
     opencode
     pciutils
     usbutils
