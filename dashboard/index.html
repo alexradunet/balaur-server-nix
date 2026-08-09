@@ -79,7 +79,6 @@
       <section class="services">
         <a class="service" id="headscale" href="https://headscale.balaur.space/admin/"><span>Headscale<br><small>Network control</small></span><i class="status"></i></a>
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
-        <a class="service" id="zellij"><span>Zellij Web Terminal<br><small>Terminal</small></span><i class="status"></i></a>
         <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
         <a class="service" id="paseo"><span>Paseo<br><small>AI agents</small></span><i class="status"></i></a>
       </section>
@@ -88,10 +87,9 @@
 
     <script>
       const byId = (id) => document.getElementById(id);
-      byId("syncthing").href = `https://${location.hostname}:8384`;
-      byId("zellij").href = `https://${location.hostname}:8081`;
-      byId("desktop").href = `https://${location.hostname}:8084`;
-      byId("paseo").href = `https://${location.hostname}:6767`;
+      byId("syncthing").href = "https://syncthing.balaur.space";
+      byId("desktop").href = "https://desktop.balaur.space";
+      byId("paseo").href = "https://paseo.balaur.space";
 
       const storage = (used, total) => {
         const units = ["B", "KiB", "MiB", "GiB", "TiB"];

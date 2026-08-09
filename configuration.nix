@@ -1,10 +1,6 @@
 { paseoRelayPackage, pkgs, ... }:
 
 {
-  imports = [
-    ./hardware-configuration.nix
-  ];
-
   # ------------------------------------------------------------
   # Nix
   # ------------------------------------------------------------
@@ -133,6 +129,16 @@
         magic_dns = true;
         base_domain = "tailnet.balaur.space";
         override_local_dns = false;
+        extra_records = map (name: {
+          inherit name;
+          type = "A";
+          value = "100.64.0.1";
+        }) [
+          "dashboard.balaur.space"
+          "desktop.balaur.space"
+          "paseo.balaur.space"
+          "syncthing.balaur.space"
+        ];
       };
     };
   };
@@ -169,21 +175,36 @@
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
 
-    # Keep the short MagicDNS name convenient while using the certificate's full name.
+    # Keep the short MagicDNS name convenient while using the dashboard's full name.
     virtualHosts."balaur" = {
       default = true;
 
-      locations."/".return = "302 https://balaur.tailnet.balaur.space$request_uri";
+      locations."/".return = "302 https://dashboard.balaur.space$request_uri";
     };
 
-    # ACME validates this name publicly, but Headscale resolves it to the tailnet address.
-    virtualHosts."balaur.tailnet.balaur.space" = {
+    # ACME validates these names publicly, but Headscale resolves them to the tailnet address.
+    virtualHosts."dashboard.balaur.space" = {
       enableACME = true;
       forceSSL = true;
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080";
         proxyWebsockets = true;
+        extraConfig = ''
+          allow 100.64.0.0/10;
+          allow fd7a:115c:a1e0::/48;
+          deny all;
+        '';
+      };
+    };
+
+    # Preserve the previous dashboard URL for existing bookmarks.
+    virtualHosts."balaur.tailnet.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
+
+      locations."/" = {
+        return = "302 https://dashboard.balaur.space$request_uri";
         extraConfig = ''
           allow 100.64.0.0/10;
           allow fd7a:115c:a1e0::/48;
@@ -219,22 +240,9 @@
       };
     };
 
-    virtualHosts."syncthing-tailnet" = {
-      serverName = "balaur.tailnet.balaur.space";
-      onlySSL = true;
-      useACMEHost = "balaur.tailnet.balaur.space";
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 8384;
-          ssl = true;
-        }
-        {
-          addr = "[::0]";
-          port = 8384;
-          ssl = true;
-        }
-      ];
+    virtualHosts."syncthing.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:8383";
@@ -247,22 +255,9 @@
       };
     };
 
-    virtualHosts."paseo-tailnet" = {
-      serverName = "balaur.tailnet.balaur.space";
-      onlySSL = true;
-      useACMEHost = "balaur.tailnet.balaur.space";
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 6767;
-          ssl = true;
-        }
-        {
-          addr = "[::0]";
-          port = 6767;
-          ssl = true;
-        }
-      ];
+    virtualHosts."paseo.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:6768";
@@ -275,51 +270,9 @@
       };
     };
 
-    # Tailnet web services terminate TLS in nginx and keep their backends on loopback.
-    virtualHosts."zellij-tailnet" = {
-      serverName = "balaur.tailnet.balaur.space";
-      onlySSL = true;
-      useACMEHost = "balaur.tailnet.balaur.space";
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 8081;
-          ssl = true;
-        }
-        {
-          addr = "[::0]";
-          port = 8081;
-          ssl = true;
-        }
-      ];
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:8083";
-        proxyWebsockets = true;
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    virtualHosts."desktop-tailnet" = {
-      serverName = "balaur.tailnet.balaur.space";
-      onlySSL = true;
-      useACMEHost = "balaur.tailnet.balaur.space";
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 8084;
-          ssl = true;
-        }
-        {
-          addr = "[::0]";
-          port = 8084;
-          ssl = true;
-        }
-      ];
+    virtualHosts."desktop.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
 
       locations."= /".return = "302 /vnc.html?autoconnect=1&resize=remote";
 
@@ -366,6 +319,7 @@
     hostnames = [
       "balaur"
       "balaur.tailnet.balaur.space"
+      "paseo.balaur.space"
     ];
 
     relay = {
@@ -379,24 +333,6 @@
     environment = {
       PASEO_RELAY_ENABLED = "true";
       PASEO_WEB_UI_ENABLED = "true";
-    };
-  };
-
-  # Keep Zellij on loopback and expose it through the tailnet-only nginx port.
-  systemd.services.zellij-web = {
-    description = "Zellij web terminal";
-    after = [ "network.target" ];
-    wantedBy = [ "multi-user.target" ];
-
-    environment.HOME = "/home/alex";
-
-    serviceConfig = {
-      User = "alex";
-      Group = "users";
-      WorkingDirectory = "/home/alex";
-      ExecStart = "${pkgs.zellij}/bin/zellij web --ip 127.0.0.1 --port 8083";
-      Restart = "on-failure";
-      RestartSec = 5;
     };
   };
 
@@ -584,13 +520,6 @@
       UMask = "0077";
     };
   };
-
-  networking.firewall.interfaces.tailscale0.allowedTCPPorts = [
-    6767
-    8081
-    8084
-    8384
-  ];
 
   networking.firewall.allowedTCPPorts = [
     22

@@ -15,7 +15,14 @@
     };
   };
 
-  outputs = { nixpkgs, paseo, paseo-relay, ... }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      paseo,
+      paseo-relay,
+      ...
+    }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -27,8 +34,20 @@
         specialArgs = { inherit paseoRelayPackage; };
         modules = [
           paseo.nixosModules.default
+          ./hardware-configuration.nix
           ./configuration.nix
         ];
+      };
+
+      packages.${system}.paseo-relay = paseoRelayPackage;
+
+      checks.${system} = {
+        configuration = import ./tests/configuration.nix {
+          inherit pkgs;
+          config = self.nixosConfigurations.balaur.config;
+        };
+        dashboard = import ./tests/dashboard.nix { inherit pkgs; };
+        paseo-relay = paseoRelayPackage;
       };
     };
 }
