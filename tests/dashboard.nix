@@ -38,7 +38,7 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.memory.total > 0)
         and (.disk.total > 0)
         and (.services | length == 4)
-        and ([.services[].id] == ["headscale", "syncthing", "desktop", "paseo"])
+        and ([.services[].id] == ["headscale", "syncthing", "desktop", "herdr"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 

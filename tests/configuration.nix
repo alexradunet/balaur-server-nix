@@ -71,6 +71,7 @@ let
           4000
           6080
           6768
+          7681
           8080
           8082
           8383
@@ -82,10 +83,8 @@ let
         config.services.headscale.address == "127.0.0.1"
         && config.services.headscale.port == 8082
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
-        && config.services.paseo.listenAddress == "127.0.0.1"
-        && config.services.paseo.port == 6768
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
-        && config.systemd.services.paseo-relay.environment.PASEO_RELAY_HOST == "127.0.0.1";
+        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
       message = "proxied application services must bind to loopback";
     }
     {
@@ -93,7 +92,7 @@ let
         map (record: record.name) config.services.headscale.settings.dns.extra_records == [
           "dashboard.balaur.space"
           "desktop.balaur.space"
-          "paseo.balaur.space"
+          "herdr.balaur.space"
           "syncthing.balaur.space"
         ]
         && lib.all (
@@ -112,14 +111,11 @@ let
           config.services.nginx.virtualHosts."headscale.balaur.space".locations."/".proxyPass
           == "http://127.0.0.1:8082"
         &&
-          config.services.nginx.virtualHosts."relay.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:4000"
-        &&
           config.services.nginx.virtualHosts."syncthing.balaur.space".locations."/".proxyPass
           == "http://127.0.0.1:8383"
         &&
-          config.services.nginx.virtualHosts."paseo.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:6768"
+          config.services.nginx.virtualHosts."herdr.balaur.space".locations."/".proxyPass
+          == "http://127.0.0.1:7681"
         &&
           config.services.nginx.virtualHosts."desktop.balaur.space".locations."/".proxyPass
           == "http://127.0.0.1:6080";
@@ -130,7 +126,7 @@ let
         config.services.nginx.virtualHosts."dashboard.balaur.space".locations."/"
         config.services.nginx.virtualHosts."balaur.tailnet.balaur.space".locations."/"
         config.services.nginx.virtualHosts."syncthing.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."paseo.balaur.space".locations."/"
+        config.services.nginx.virtualHosts."herdr.balaur.space".locations."/"
         config.services.nginx.virtualHosts."desktop.balaur.space".locations."/"
       ];
       message = "private nginx endpoints must enforce both tailnet ranges and deny all other clients";
@@ -142,25 +138,16 @@ let
         && config.services.nginx.enable
         && config.services.tailscale.enable
         && config.services.syncthing.enable
-        && config.services.paseo.enable
         &&
           lib.all (service: builtins.elem "multi-user.target" config.systemd.services.${service}.wantedBy)
             [
               "balaur-dashboard"
-              "paseo-relay"
+              "herdr-web"
               "web-desktop-novnc"
               "web-desktop-session"
               "web-desktop-vnc"
             ];
       message = "all declared server services must remain enabled at boot";
-    }
-    {
-      assertion =
-        config.services.paseo.relay.mode == "remote"
-        && config.services.paseo.relay.host == "relay.balaur.space"
-        && config.services.paseo.relay.port == 443
-        && config.services.paseo.relay.useTls;
-      message = "Paseo must use the public TLS relay endpoint";
     }
     {
       assertion =
@@ -171,7 +158,6 @@ let
     {
       assertion = lib.all hardened [
         "balaur-dashboard"
-        "paseo-relay"
         "web-desktop-novnc"
       ];
       message = "network-facing custom services must retain their systemd sandboxing";
@@ -192,6 +178,8 @@ else
   pkgs.runCommand "balaur-configuration-tests" { } ''
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
+    grep --fixed-strings -- '--writable' ${config.systemd.services.herdr-web.serviceConfig.ExecStart}
+    grep --fixed-strings -- '--check-origin' ${config.systemd.services.herdr-web.serviceConfig.ExecStart}
     mkdir -p "$out"
     printf '%s\n' 'All ${toString (builtins.length assertions)} configuration invariants passed.' > "$out/result"
   ''

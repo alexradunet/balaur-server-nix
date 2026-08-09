@@ -1,4 +1,4 @@
-{ paseoRelayPackage, pkgs, ... }:
+{ herdrPackage, pkgs, ... }:
 
 {
   # ------------------------------------------------------------
@@ -140,7 +140,7 @@
         }) [
           "dashboard.balaur.space"
           "desktop.balaur.space"
-          "paseo.balaur.space"
+          "herdr.balaur.space"
           "syncthing.balaur.space"
         ];
       };
@@ -234,16 +234,6 @@
       };
     };
 
-    virtualHosts."relay.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:4000";
-        proxyWebsockets = true;
-      };
-    };
-
     virtualHosts."syncthing.balaur.space" = {
       enableACME = true;
       forceSSL = true;
@@ -266,21 +256,14 @@
       };
     };
 
-    virtualHosts."paseo.balaur.space" = {
+    virtualHosts."herdr.balaur.space" = {
       enableACME = true;
       forceSSL = true;
 
       locations."/" = {
-        proxyPass = "http://127.0.0.1:6768";
+        proxyPass = "http://127.0.0.1:7681";
         proxyWebsockets = true;
-        recommendedProxySettings = false;
         extraConfig = ''
-          proxy_set_header Host $host:$server_port;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_set_header X-Forwarded-Host $host;
-          proxy_set_header X-Forwarded-Server $hostname;
           allow 100.64.0.0/10;
           allow fd7a:115c:a1e0::/48;
           deny all;
@@ -324,34 +307,6 @@
     configDir = "/home/alex/.config/syncthing";
     guiAddress = "127.0.0.1:8383";
     openDefaultPorts = true;
-  };
-
-  # Paseo runs agents with Alex's development environment and uses our relay.
-  services.paseo = {
-    enable = true;
-    user = "alex";
-    group = "users";
-    dataDir = "/home/alex/.paseo";
-    listenAddress = "127.0.0.1";
-    port = 6768;
-    hostnames = [
-      "balaur"
-      "balaur.tailnet.balaur.space"
-      "paseo.balaur.space"
-    ];
-
-    relay = {
-      enable = true;
-      mode = "remote";
-      host = "relay.balaur.space";
-      port = 443;
-      useTls = true;
-    };
-
-    environment = {
-      PASEO_RELAY_ENABLED = "true";
-      PASEO_WEB_UI_ENABLED = "true";
-    };
   };
 
   # Xvnc provides a persistent virtual X display without affecting local Sway.
@@ -461,44 +416,29 @@
     };
   };
 
-  systemd.services.paseo-relay = {
-    description = "Paseo relay";
+  # ttyd exposes Herdr's terminal UI without changing its persistent session model.
+  systemd.services.herdr-web = {
+    description = "Herdr web terminal";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
 
     environment = {
-      HOME = "/var/lib/paseo-relay";
-      PASEO_RELAY_HOST = "127.0.0.1";
-      PASEO_RELAY_PORT = "4000";
-      PASEO_RELAY_MIN_CLUSTER_SIZE = "1";
+      HERDR_WEB_LISTEN = "127.0.0.1";
+      HERDR_WEB_PORT = "7681";
+      HOME = "/home/alex";
+      SHELL = "${pkgs.bashInteractive}/bin/bash";
     };
 
     serviceConfig = {
-      DynamicUser = true;
-      StateDirectory = "paseo-relay";
-      WorkingDirectory = "/var/lib/paseo-relay";
-      ExecStart = "${paseoRelayPackage}/bin/paseo_relay start";
+      User = "alex";
+      Group = "users";
+      WorkingDirectory = "/home/alex";
+      ExecStart = pkgs.writeShellScript "herdr-web" ''
+        export PATH="/home/alex/.nix-profile/bin:/home/alex/.local/state/nix/profile/bin:/etc/profiles/per-user/alex/bin:/run/current-system/sw/bin:/run/wrappers/bin:$PATH"
+        exec ${pkgs.ttyd}/bin/ttyd --interface "$HERDR_WEB_LISTEN" --port "$HERDR_WEB_PORT" --writable --check-origin ${herdrPackage}/bin/herdr
+      '';
       Restart = "on-failure";
       RestartSec = 5;
-
-      CapabilityBoundingSet = "";
-      LockPersonality = true;
-      NoNewPrivileges = true;
-      PrivateDevices = true;
-      PrivateTmp = true;
-      ProtectClock = true;
-      ProtectControlGroups = true;
-      ProtectHome = true;
-      ProtectHostname = true;
-      ProtectKernelLogs = true;
-      ProtectKernelModules = true;
-      ProtectKernelTunables = true;
-      ProtectSystem = "strict";
-      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
-      RestrictNamespaces = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      UMask = "0077";
     };
   };
 
@@ -558,7 +498,7 @@
     wget
     htop
     tmux
-    zellij
+    herdrPackage
     opencode
     pciutils
     usbutils

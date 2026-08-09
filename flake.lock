@@ -1,6 +1,42 @@
 {
   "nodes": {
+    "herdr": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1785783176,
+        "narHash": "sha256-empFQ+hrnCh2JhOzQRWSCLV0YoZC3DXW3bY6k8YuJjk=",
+        "owner": "herdrdev",
+        "repo": "herdr",
+        "rev": "346411fa21afd297f5ed3b3fa56f9e3fbf7654b7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "herdrdev",
+        "ref": "v0.8.0",
+        "repo": "herdr",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
+      "locked": {
+        "lastModified": 1779357205,
+        "narHash": "sha256-cCO8aTqss5x9Ky8GWkpY0Hy5fyTZEbtifSUV8QjSzic=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f83fc3c307e74bc5fd5adb7eb6b8b13ffd2a36e1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
       "locked": {
         "lastModified": 1786089803,
         "narHash": "sha256-ZuvZfVW2tB5tXYEcpcfhVXB3N4OhdZLOqOviy4OD4b4=",
@@ -16,47 +52,31 @@
         "type": "github"
       }
     },
-    "paseo": {
+    "root": {
+      "inputs": {
+        "herdr": "herdr",
+        "nixpkgs": "nixpkgs_2"
+      }
+    },
+    "rust-overlay": {
       "inputs": {
         "nixpkgs": [
+          "herdr",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1786287540,
-        "narHash": "sha256-IlC7jc5LTZqEKWDWHlHT0cyGUd9zt0JmDjr0MVpbxaY=",
-        "owner": "getpaseo",
-        "repo": "paseo",
-        "rev": "ccb4e444ed556c3ae6a8a98a22c9499ce8287a85",
+        "lastModified": 1783577481,
+        "narHash": "sha256-EWMxOWrJ031f8f/lrcEmhTRs4npw1/5N3Hcjin846c8=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "4cdea398dc491b082dccdce0fad1ed0b75fa3394",
         "type": "github"
       },
       "original": {
-        "owner": "getpaseo",
-        "repo": "paseo",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
         "type": "github"
-      }
-    },
-    "paseo-relay": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1785929843,
-        "narHash": "sha256-Zoa+02YMAgsqrDY31OSXR6tIur9okxFvKIDWfk0mmQM=",
-        "owner": "getpaseo",
-        "repo": "paseo-relay",
-        "rev": "7e52c8c7c96f1b8049c39acb5208012c57eb0af0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "getpaseo",
-        "repo": "paseo-relay",
-        "type": "github"
-      }
-    },
-    "root": {
-      "inputs": {
-        "nixpkgs": "nixpkgs",
-        "paseo": "paseo",
-        "paseo-relay": "paseo-relay"
       }
     }
   },

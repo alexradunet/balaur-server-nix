@@ -33,7 +33,7 @@ nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 
 The invariant check covers the host's boot and filesystem layout, SSH and firewall
 policy, loopback-only services, MagicDNS records, nginx routes and access controls,
-service enablement, Paseo relay settings, runtime secret generation, and systemd
+service enablement, runtime secret generation, and systemd
 sandboxing. The dashboard check starts the real Node server and verifies its HTTP
 routes, security headers, metrics response, and service status payload.
 
@@ -44,8 +44,7 @@ routes, security headers, metrics response, and service status payload.
 | Dashboard | `https://dashboard.balaur.space/` | Tailnet only |
 | Headplane | `https://headscale.balaur.space/admin/` | Public, API key required |
 | Headscale API | `https://headscale.balaur.space/` | Public |
-| Paseo relay | `https://relay.balaur.space/` | Public |
-| Paseo | `https://paseo.balaur.space/` | Tailnet only |
+| Herdr | `https://herdr.balaur.space/` | Tailnet only |
 | Syncthing | `https://syncthing.balaur.space/` | Tailnet only |
 | XFCE web desktop | `https://desktop.balaur.space/` | Tailnet only |
 
@@ -61,17 +60,19 @@ sudo headscale apikeys create
 
 Headscale does not provide Tailscale-managed HTTPS certificates, so the tailnet services use Let's Encrypt certificates through nginx. Split DNS keeps the services private while allowing public ACME validation:
 
-- Public DNS has `CNAME` records for `dashboard.balaur.space`, `desktop.balaur.space`, `paseo.balaur.space`, and `syncthing.balaur.space` pointing to `balaur.tailnet.balaur.space`.
+- Public DNS has one wildcard `CNAME` record, `*.balaur.space`, pointing to `balaur.tailnet.balaur.space`. Explicit records such as `headscale.balaur.space` take precedence.
 - Headscale MagicDNS overrides those names with the server's tailnet address (`100.64.0.1`) for connected clients.
 - Headscale provides Tailnet DNS globally and forwards other lookups to Cloudflare so operating systems use the private records outside the MagicDNS base domain.
 - nginx permits content only from Tailscale IPv4 and IPv6 ranges. The ACME challenges remain publicly reachable.
 
-The public DNS record must exist before deploying a new dashboard certificate configuration.
+The wildcard public DNS record must exist before deploying a certificate for a new service subdomain.
 
 ## Tailnet Services
 
-The dashboard monitors Headscale, Syncthing, the web desktop, and Paseo through their loopback listeners. nginx is the only network-facing entry point for their web interfaces and routes each Tailnet-only subdomain over standard HTTPS.
+The dashboard monitors Headscale, Syncthing, the web desktop, and Herdr through their loopback listeners. nginx is the only network-facing entry point for their web interfaces and routes each Tailnet-only subdomain over standard HTTPS.
 
-noVNC does not have an additional application authentication layer. Its firewall exposure must remain limited to `tailscale0`.
+Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI through a loopback-only ttyd process as the `alex` user, so it shares the CLI's persistent sessions and development environment.
+
+noVNC and the Herdr web terminal do not have an additional application authentication layer. nginx access controls must remain limited to Tailnet clients.
 
 The web desktop consists of a persistent TigerVNC display, an XFCE session, and a loopback-only noVNC gateway. It is independent of the optional local Sway session.
