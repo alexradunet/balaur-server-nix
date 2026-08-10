@@ -23,6 +23,8 @@ in
     "flakes"
   ];
 
+  nixpkgs.config.allowUnfreePredicate = pkg: pkgs.lib.getName pkg == "obsidian";
+
   # ------------------------------------------------------------
   # Boot
   # ------------------------------------------------------------
@@ -552,6 +554,7 @@ in
     wget
     htop
     tmux
+    obsidian
     herdrPackage
     llamaCppPackage
     opencode
