@@ -1,6 +1,8 @@
 { herdrPackage, pkgs, ... }:
 
 let
+  piPackage = pkgs.callPackage ./pi.nix { };
+
   llamaCppPackage =
     (pkgs.llama-cpp.override {
       rocmSupport = true;
@@ -128,217 +130,16 @@ in
 
     settings = {
       AllowUsers = [ "alex" ];
+      KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
       PasswordAuthentication = true;
+      X11Forwarding = false;
     };
   };
 
   # ------------------------------------------------------------
-  # Headscale
+  # Services
   # ------------------------------------------------------------
-
-  services.headscale = {
-    enable = true;
-    address = "127.0.0.1";
-    port = 8082;
-
-    settings = {
-      server_url = "https://headscale.balaur.space";
-
-      policy = {
-        mode = "file";
-        path = ./headscale-policy.hujson;
-      };
-
-      dns = {
-        magic_dns = true;
-        base_domain = "tailnet.balaur.space";
-        override_local_dns = true;
-        nameservers.global = [
-          "1.1.1.1"
-          "1.0.0.1"
-        ];
-        extra_records = map (name: {
-          inherit name;
-          type = "A";
-          value = "100.64.0.1";
-        }) [
-          "dashboard.balaur.space"
-          "desktop.balaur.space"
-          "herdr.balaur.space"
-          "llama.balaur.space"
-          "syncthing.balaur.space"
-        ];
-      };
-    };
-  };
-
-  services.headplane = {
-    enable = true;
-
-    settings = {
-      server = {
-        base_url = "https://headscale.balaur.space";
-        cookie_secret_path = "/var/lib/headplane/cookie-secret";
-      };
-
-      headscale = {
-        url = "http://127.0.0.1:8082";
-        public_url = "https://headscale.balaur.space";
-      };
-
-      # Headscale's declarative Nix configuration is intentionally read-only.
-      integration.proc.enabled = false;
-    };
-  };
-
-  # Keep the session secret out of the world-readable Nix store.
-  systemd.services.headplane.preStart = ''
-    if [[ ! -s /var/lib/headplane/cookie-secret ]]; then
-      umask 077
-      ${pkgs.openssl}/bin/openssl rand -hex 16 > /var/lib/headplane/cookie-secret
-    fi
-  '';
-
-  services.nginx = {
-    enable = true;
-    recommendedProxySettings = true;
-    recommendedTlsSettings = true;
-
-    # Keep the short MagicDNS name convenient while using the dashboard's full name.
-    virtualHosts."balaur" = {
-      default = true;
-
-      locations."/".return = "302 https://dashboard.balaur.space$request_uri";
-    };
-
-    # ACME validates these names publicly, but Headscale resolves them to the tailnet address.
-    virtualHosts."dashboard.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:8080";
-        proxyWebsockets = true;
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    # Preserve the previous dashboard URL for existing bookmarks.
-    virtualHosts."balaur.tailnet.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        return = "302 https://dashboard.balaur.space$request_uri";
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    virtualHosts."headscale.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."= /".return = "302 /admin/";
-
-      locations."/admin/" = {
-        proxyPass = "http://127.0.0.1:3000";
-        proxyWebsockets = true;
-      };
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:8082";
-        proxyWebsockets = true;
-      };
-    };
-
-    virtualHosts."syncthing.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:8383";
-        proxyWebsockets = true;
-        recommendedProxySettings = false;
-        extraConfig = ''
-          proxy_set_header Host 127.0.0.1:8383;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_set_header X-Forwarded-Host $host;
-          proxy_set_header X-Forwarded-Server $hostname;
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    virtualHosts."herdr.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:7681";
-        proxyWebsockets = true;
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    virtualHosts."llama.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:8081";
-        proxyWebsockets = true;
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-
-    virtualHosts."desktop.balaur.space" = {
-      enableACME = true;
-      forceSSL = true;
-
-      locations."= /".return = "302 /vnc.html?autoconnect=1&resize=remote";
-
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:6080";
-        proxyWebsockets = true;
-        extraConfig = ''
-          allow 100.64.0.0/10;
-          allow fd7a:115c:a1e0::/48;
-          deny all;
-        '';
-      };
-    };
-  };
-
-  security.acme = {
-    acceptTerms = true;
-    defaults.email = "hello@alexradu.net";
-  };
-
-  services.tailscale = {
-    enable = true;
-    openFirewall = true;
-  };
 
   services.syncthing = {
     enable = true;
@@ -347,7 +148,7 @@ in
     dataDir = "/home/alex";
     configDir = "/home/alex/.config/syncthing";
     guiAddress = "127.0.0.1:8383";
-    openDefaultPorts = true;
+    openDefaultPorts = false;
   };
 
   # Keep the USB backup offline except while Borg is creating a daily snapshot.
@@ -573,7 +374,11 @@ in
       ProtectKernelModules = true;
       ProtectKernelTunables = true;
       ProtectSystem = "strict";
-      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_INET6"
+        "AF_UNIX"
+      ];
       RestrictNamespaces = true;
       RestrictRealtime = true;
       SystemCallArchitectures = "native";
@@ -636,7 +441,11 @@ in
       ProtectKernelModules = true;
       ProtectKernelTunables = true;
       ProtectSystem = "strict";
-      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_INET6"
+        "AF_UNIX"
+      ];
       RestrictNamespaces = true;
       RestrictRealtime = true;
       SystemCallArchitectures = "native";
@@ -646,8 +455,6 @@ in
 
   networking.firewall.allowedTCPPorts = [
     22
-    80
-    443
   ];
 
   # ------------------------------------------------------------
@@ -665,7 +472,7 @@ in
     obsidian
     herdrPackage
     llamaCppPackage
-    opencode
+    piPackage
     pciutils
     usbutils
     mdadm

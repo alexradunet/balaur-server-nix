@@ -77,7 +77,6 @@
 
       <h2>Services</h2>
       <section class="services">
-        <a class="service" id="headscale" href="https://headscale.balaur.space/admin/"><span>Headscale<br><small>Network control</small></span><i class="status"></i></a>
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
         <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
         <a class="service" id="herdr"><span>Herdr<br><small>Agent terminal</small></span><i class="status"></i></a>
@@ -88,10 +87,10 @@
 
     <script>
       const byId = (id) => document.getElementById(id);
-      byId("syncthing").href = "https://syncthing.balaur.space";
-      byId("desktop").href = "https://desktop.balaur.space";
-      byId("herdr").href = "https://herdr.balaur.space";
-      byId("llama").href = "https://llama.balaur.space";
+      byId("syncthing").href = "http://localhost:8383";
+      byId("desktop").href = "http://localhost:6080/vnc.html?autoconnect=1&resize=remote";
+      byId("herdr").href = "http://localhost:7681";
+      byId("llama").href = "http://localhost:8081";
 
       const storage = (used, total) => {
         const units = ["B", "KiB", "MiB", "GiB", "TiB"];

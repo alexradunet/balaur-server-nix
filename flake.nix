@@ -17,6 +17,7 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       herdrPackage = herdr.packages.${system}.default;
+      piPackage = pkgs.callPackage ./pi.nix { };
     in
     {
       nixosConfigurations.balaur = nixpkgs.lib.nixosSystem {
@@ -35,6 +36,7 @@
         };
         dashboard = import ./tests/dashboard.nix { inherit pkgs; };
         herdr = herdrPackage;
+        pi = piPackage;
       };
     };
 }

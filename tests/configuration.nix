@@ -3,16 +3,6 @@
 let
   inherit (pkgs) lib;
 
-  headscalePolicy = builtins.fromJSON (builtins.readFile config.services.headscale.settings.policy.path);
-
-  tailnetOnly =
-    location:
-    lib.all (directive: lib.hasInfix directive location.extraConfig) [
-      "allow 100.64.0.0/10;"
-      "allow fd7a:115c:a1e0::/48;"
-      "deny all;"
-    ];
-
   hardened =
     service:
     let
@@ -73,18 +63,19 @@ let
       assertion =
         config.services.openssh.enable
         && config.services.openssh.settings.AllowUsers == [ "alex" ]
+        && !config.services.openssh.settings.KbdInteractiveAuthentication
         && config.services.openssh.settings.PermitRootLogin == "no"
-        && config.services.openssh.settings.PasswordAuthentication;
-      message = "SSH must only permit the alex account and must reject root";
+        && config.services.openssh.settings.PasswordAuthentication
+        && !config.services.openssh.settings.X11Forwarding;
+      message = "SSH must only permit alex, reject root, and disable unused authentication and forwarding features";
     }
     {
       assertion =
-        lib.all (port: builtins.elem port config.networking.firewall.allowedTCPPorts) [
-          22
+        config.networking.firewall.allowedTCPPorts == [ 22 ]
+        && config.networking.firewall.allowedUDPPorts == [ ]
+        && lib.all (port: !builtins.elem port config.networking.firewall.allowedTCPPorts) [
           80
           443
-        ]
-        && lib.all (port: !builtins.elem port config.networking.firewall.allowedTCPPorts) [
           3000
           4000
           6080
@@ -94,91 +85,27 @@ let
           8081
           8082
           8383
+          22000
         ];
-      message = "web application ports must not be directly exposed through the firewall";
+      message = "SSH must be the only TCP service exposed through the firewall";
     }
     {
       assertion =
-        config.services.headscale.address == "127.0.0.1"
-        && config.services.headscale.port == 8082
-        && config.services.llama-cpp.host == "127.0.0.1"
+        config.services.llama-cpp.host == "127.0.0.1"
         && config.services.llama-cpp.port == 8081
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
+        && !config.services.syncthing.openDefaultPorts
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
-      message = "proxied application services must bind to loopback";
+      message = "application services must bind to loopback for SSH forwarding";
     }
     {
       assertion =
-        config.services.headscale.settings.policy.mode == "file"
-        && headscalePolicy.tagOwners."tag:admin" == [ "alex@" ]
-        && headscalePolicy.hosts.balaur == "100.64.0.1/32"
-        &&
-          headscalePolicy.acls == [
-            {
-              action = "accept";
-              src = [ "tag:admin" ];
-              dst = [ "balaur:*" ];
-            }
-          ];
-      message = "only tagged admin devices may initiate tailnet connections to balaur";
-    }
-    {
-      assertion =
-        map (record: record.name) config.services.headscale.settings.dns.extra_records == [
-          "dashboard.balaur.space"
-          "desktop.balaur.space"
-          "herdr.balaur.space"
-          "llama.balaur.space"
-          "syncthing.balaur.space"
-        ]
-        && lib.all (
-          record: record.value == "100.64.0.1"
-        ) config.services.headscale.settings.dns.extra_records;
-      message = "MagicDNS must direct private services to the tailnet address";
-    }
-    {
-      assertion =
-        config.services.nginx.virtualHosts."balaur".locations."/".return
-        == "302 https://dashboard.balaur.space$request_uri"
-        &&
-          config.services.nginx.virtualHosts."dashboard.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:8080"
-        &&
-          config.services.nginx.virtualHosts."headscale.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:8082"
-        &&
-          config.services.nginx.virtualHosts."syncthing.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:8383"
-        &&
-          config.services.nginx.virtualHosts."herdr.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:7681"
-        &&
-          config.services.nginx.virtualHosts."llama.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:8081"
-        &&
-          config.services.nginx.virtualHosts."desktop.balaur.space".locations."/".proxyPass
-          == "http://127.0.0.1:6080";
-      message = "nginx must route every endpoint to its intended loopback service";
-    }
-    {
-      assertion = lib.all tailnetOnly [
-        config.services.nginx.virtualHosts."dashboard.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."balaur.tailnet.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."syncthing.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."herdr.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."llama.balaur.space".locations."/"
-        config.services.nginx.virtualHosts."desktop.balaur.space".locations."/"
-      ];
-      message = "private nginx endpoints must enforce both tailnet ranges and deny all other clients";
-    }
-    {
-      assertion =
-        config.services.headscale.enable
-        && config.services.headplane.enable
-        && config.services.nginx.enable
+        !config.services.headscale.enable
+        && !config.services.headplane.enable
+        && !config.services.nginx.enable
+        && !config.services.tailscale.enable
         && config.services.llama-cpp.enable
-        && config.services.tailscale.enable
         && config.services.syncthing.enable
         &&
           lib.all (service: builtins.elem "multi-user.target" config.systemd.services.${service}.wantedBy)
@@ -189,13 +116,7 @@ let
               "web-desktop-session"
               "web-desktop-vnc"
             ];
-      message = "all declared server services must remain enabled at boot";
-    }
-    {
-      assertion =
-        lib.hasInfix "umask 077" config.systemd.services.headplane.preStart
-        && lib.hasInfix "/var/lib/headplane/cookie-secret" config.systemd.services.headplane.preStart;
-      message = "Headplane must generate its cookie secret at runtime with restrictive permissions";
+      message = "VPN and public web ingress must remain disabled while local services start at boot";
     }
     {
       assertion = lib.all hardened [
@@ -211,22 +132,23 @@ let
     {
       assertion =
         config.services.llama-cpp.package.version == "10336"
-        && config.services.llama-cpp.extraFlags == [
-          "--hf-repo"
-          "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
-          "--ctx-size"
-          "65536"
-          "--parallel"
-          "2"
-          "--n-gpu-layers"
-          "999"
-          "--flash-attn"
-          "on"
-          "--spec-type"
-          "draft-mtp"
-          "--spec-draft-n-max"
-          "4"
-        ]
+        &&
+          config.services.llama-cpp.extraFlags == [
+            "--hf-repo"
+            "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
+            "--ctx-size"
+            "65536"
+            "--parallel"
+            "2"
+            "--n-gpu-layers"
+            "999"
+            "--flash-attn"
+            "on"
+            "--spec-type"
+            "draft-mtp"
+            "--spec-draft-n-max"
+            "4"
+          ]
         && config.hardware.graphics.enable
         && config.systemd.services.llama-cpp.environment.XDG_CACHE_HOME == "/var/cache/llama-cpp"
         && config.systemd.services.llama-cpp.serviceConfig.ProcSubset == "all"

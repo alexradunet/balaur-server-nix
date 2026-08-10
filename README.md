@@ -1,6 +1,6 @@
 # Balaur Server
 
-NixOS configuration for `balaur`, a Headscale server and tailnet development host.
+NixOS configuration for `balaur`, a LAN-accessible development host managed over SSH.
 
 ## Deploy
 
@@ -75,63 +75,42 @@ sudo umount /mnt/balaur-backup
 ```
 
 The invariant check covers the host's boot and filesystem layout, SSH and firewall
-policy, loopback-only services, MagicDNS records, nginx routes and access controls,
-service enablement, runtime secret generation, and systemd
-sandboxing. The dashboard check starts the real Node server and verifies its HTTP
+policy, loopback-only services, service enablement, and systemd sandboxing. The
+dashboard check starts the real Node server and verifies its HTTP
 routes, security headers, metrics response, and service status payload.
 
-## Endpoints
+## SSH Access
 
-| Service | URL | Access |
-| --- | --- | --- |
-| Dashboard | `https://dashboard.balaur.space/` | Tailnet only |
-| Headplane | `https://headscale.balaur.space/admin/` | Public, API key required |
-| Headscale API | `https://headscale.balaur.space/` | Public |
-| Herdr | `https://herdr.balaur.space/` | Tailnet only |
-| llama.cpp | `https://llama.balaur.space/` | Tailnet only |
-| Syncthing | `https://syncthing.balaur.space/` | Tailnet only |
-| XFCE web desktop | `https://desktop.balaur.space/` | Tailnet only |
-
-`http://balaur/` redirects to the dashboard's canonical HTTPS URL.
-
-Headplane asks for a Headscale API key on first use. Create one on the server with:
+SSH is the only service allowed through the host firewall. Connect from the LAN with
+the server's hostname or LAN address:
 
 ```sh
-sudo headscale apikeys create
+ssh alex@balaur
 ```
 
-## Tailnet Access Policy
+Password authentication remains enabled until an authorized key is added, avoiding
+an accidental lockout during this transition. Root login, keyboard-interactive
+authentication, and X11 forwarding are disabled.
 
-Headscale only permits devices tagged `tag:admin` to initiate connections to
-Balaur's Tailnet address. User `alex` owns that tag. Untagged devices remain
-enrolled but cannot connect to services on Balaur.
-
-Deploy this change from the local console or LAN, not through a Tailnet SSH
-session: the policy takes effect before any existing client has the tag. After
-deployment, list the nodes and tag each trusted administration device:
+The web services listen only on loopback. Forward them through SSH when needed:
 
 ```sh
-sudo headscale nodes list
-sudo headscale nodes tag -i NODE_ID -t tag:admin
+ssh -N alex@balaur \
+  -L 8080:127.0.0.1:8080 \
+  -L 8383:127.0.0.1:8383 \
+  -L 6080:127.0.0.1:6080 \
+  -L 7681:127.0.0.1:7681 \
+  -L 8081:127.0.0.1:8081
 ```
 
-Confirm the tag with `sudo headscale nodes list` before relying on Tailnet access.
-Removing the tag immediately revokes that device's access to Balaur.
+The dashboard is then available at `http://localhost:8080`. Its links use the other
+forwarded localhost ports.
 
-## Dashboard HTTPS
+## Local Services
 
-Headscale does not provide Tailscale-managed HTTPS certificates, so the tailnet services use Let's Encrypt certificates through nginx. Split DNS keeps the services private while allowing public ACME validation:
-
-- Public DNS has one wildcard `CNAME` record, `*.balaur.space`, pointing to `balaur.tailnet.balaur.space`. Explicit records such as `headscale.balaur.space` take precedence.
-- Headscale MagicDNS overrides those names with the server's tailnet address (`100.64.0.1`) for connected clients.
-- Headscale provides Tailnet DNS globally and forwards other lookups to Cloudflare so operating systems use the private records outside the MagicDNS base domain.
-- nginx permits content only from Tailscale IPv4 and IPv6 ranges. The ACME challenges remain publicly reachable.
-
-The wildcard public DNS record must exist before deploying a certificate for a new service subdomain.
-
-## Tailnet Services
-
-The dashboard monitors Headscale, Syncthing, the web desktop, Herdr, and llama.cpp through their loopback listeners. nginx is the only network-facing entry point for their web interfaces and routes each Tailnet-only subdomain over standard HTTPS.
+The dashboard monitors Syncthing, the web desktop, Herdr, and llama.cpp through
+their loopback listeners. No reverse proxy, public HTTPS endpoint, VPN, or overlay
+network is configured.
 
 llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_K_M GGUF from Hugging Face into `/var/cache/llama-cpp` on its first start. The model download is about 16.9 GB, with an additional multimodal projector downloaded automatically when available. It uses a 64K shared context, two request slots, ROCm acceleration targeting the Radeon 890M's `gfx1150` architecture, flash attention, and Gemma 4's 462 MB MTP drafter for lossless speculative decoding. The first service start remains unavailable until the downloads and model load complete; follow progress with `journalctl -fu llama-cpp`.
 
@@ -139,6 +118,6 @@ The ROCm-enabled `llama-server` and related llama.cpp commands are also installe
 
 Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI through a loopback-only ttyd process as the `alex` user, so it shares the CLI's persistent sessions and development environment.
 
-noVNC and the Herdr web terminal do not have an additional application authentication layer. nginx access controls must remain limited to Tailnet clients.
+noVNC and the Herdr web terminal do not have an additional application authentication layer. They must remain bound to loopback and accessed only through SSH forwarding.
 
 The web desktop consists of a persistent TigerVNC display, an XFCE session, and a loopback-only noVNC gateway. It is independent of the optional local Sway session.
