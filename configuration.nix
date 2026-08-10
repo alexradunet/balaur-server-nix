@@ -1,5 +1,18 @@
 { herdrPackage, pkgs, ... }:
 
+let
+  llamaCppPackage = (pkgs.llama-cpp.override { vulkanSupport = true; }).overrideAttrs {
+    version = "10336";
+    src = pkgs.fetchzip {
+      url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10336.tar.gz";
+      hash = "sha256-Yyc+LbZ6BMBww0Wno9DlM3il+ol+ahh3S/r8NbDH/ss=";
+      postFetch = ''
+        echo f401bb1 > "$out/COMMIT"
+      '';
+    };
+    npmDepsHash = "sha256-FHvd2bMvBc9EXrJEzu8EN78oUVSLcOKYCc0232V+L4A=";
+  };
+in
 {
   # ------------------------------------------------------------
   # Nix
@@ -141,6 +154,7 @@
           "dashboard.balaur.space"
           "desktop.balaur.space"
           "herdr.balaur.space"
+          "llama.balaur.space"
           "syncthing.balaur.space"
         ];
       };
@@ -271,6 +285,21 @@
       };
     };
 
+    virtualHosts."llama.balaur.space" = {
+      enableACME = true;
+      forceSSL = true;
+
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:8081";
+        proxyWebsockets = true;
+        extraConfig = ''
+          allow 100.64.0.0/10;
+          allow fd7a:115c:a1e0::/48;
+          deny all;
+        '';
+      };
+    };
+
     virtualHosts."desktop.balaur.space" = {
       enableACME = true;
       forceSSL = true;
@@ -308,6 +337,31 @@
     guiAddress = "127.0.0.1:8383";
     openDefaultPorts = true;
   };
+
+  services.llama-cpp = {
+    enable = true;
+    host = "127.0.0.1";
+    port = 8081;
+    package = llamaCppPackage;
+    extraFlags = [
+      "--hf-repo"
+      "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
+      "--ctx-size"
+      "65536"
+      "--parallel"
+      "2"
+      "--n-gpu-layers"
+      "999"
+      "--flash-attn"
+      "on"
+      "--spec-type"
+      "draft-mtp"
+      "--spec-draft-n-max"
+      "4"
+    ];
+  };
+
+  systemd.services.llama-cpp.environment.XDG_CACHE_HOME = "/var/cache/llama-cpp";
 
   # Xvnc provides a persistent virtual X display without affecting local Sway.
   systemd.services.web-desktop-vnc = {
@@ -499,6 +553,7 @@
     htop
     tmux
     herdrPackage
+    llamaCppPackage
     opencode
     pciutils
     usbutils

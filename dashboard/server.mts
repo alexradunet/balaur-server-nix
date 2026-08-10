@@ -12,6 +12,7 @@ const services = [
   { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
   { id: "desktop", name: "Web Desktop", host: "127.0.0.1", port: 6080 },
   { id: "herdr", name: "Herdr", host: "127.0.0.1", port: 7681 },
+  { id: "llama", name: "llama.cpp", host: "127.0.0.1", port: 8081 },
 ];
 
 let previousCpu: { idle: number; total: number } | undefined;

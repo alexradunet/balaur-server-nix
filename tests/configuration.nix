@@ -73,6 +73,7 @@ let
           6768
           7681
           8080
+          8081
           8082
           8383
         ];
@@ -82,6 +83,8 @@ let
       assertion =
         config.services.headscale.address == "127.0.0.1"
         && config.services.headscale.port == 8082
+        && config.services.llama-cpp.host == "127.0.0.1"
+        && config.services.llama-cpp.port == 8081
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
@@ -93,6 +96,7 @@ let
           "dashboard.balaur.space"
           "desktop.balaur.space"
           "herdr.balaur.space"
+          "llama.balaur.space"
           "syncthing.balaur.space"
         ]
         && lib.all (
@@ -117,6 +121,9 @@ let
           config.services.nginx.virtualHosts."herdr.balaur.space".locations."/".proxyPass
           == "http://127.0.0.1:7681"
         &&
+          config.services.nginx.virtualHosts."llama.balaur.space".locations."/".proxyPass
+          == "http://127.0.0.1:8081"
+        &&
           config.services.nginx.virtualHosts."desktop.balaur.space".locations."/".proxyPass
           == "http://127.0.0.1:6080";
       message = "nginx must route every endpoint to its intended loopback service";
@@ -127,6 +134,7 @@ let
         config.services.nginx.virtualHosts."balaur.tailnet.balaur.space".locations."/"
         config.services.nginx.virtualHosts."syncthing.balaur.space".locations."/"
         config.services.nginx.virtualHosts."herdr.balaur.space".locations."/"
+        config.services.nginx.virtualHosts."llama.balaur.space".locations."/"
         config.services.nginx.virtualHosts."desktop.balaur.space".locations."/"
       ];
       message = "private nginx endpoints must enforce both tailnet ranges and deny all other clients";
@@ -136,6 +144,7 @@ let
         config.services.headscale.enable
         && config.services.headplane.enable
         && config.services.nginx.enable
+        && config.services.llama-cpp.enable
         && config.services.tailscale.enable
         && config.services.syncthing.enable
         &&
@@ -165,6 +174,29 @@ let
     {
       assertion = lib.hasInfix "--listen 127.0.0.1:6080" config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart;
       message = "noVNC must only listen on loopback";
+    }
+    {
+      assertion =
+        config.services.llama-cpp.package.version == "10336"
+        && config.services.llama-cpp.extraFlags == [
+          "--hf-repo"
+          "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
+          "--ctx-size"
+          "65536"
+          "--parallel"
+          "2"
+          "--n-gpu-layers"
+          "999"
+          "--flash-attn"
+          "on"
+          "--spec-type"
+          "draft-mtp"
+          "--spec-draft-n-max"
+          "4"
+        ]
+        && config.hardware.graphics.enable
+        && config.systemd.services.llama-cpp.environment.XDG_CACHE_HOME == "/var/cache/llama-cpp";
+      message = "llama.cpp must load Gemma 4 with GPU offload and MTP speculative decoding";
     }
   ];
 

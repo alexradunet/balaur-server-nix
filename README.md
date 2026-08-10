@@ -45,6 +45,7 @@ routes, security headers, metrics response, and service status payload.
 | Headplane | `https://headscale.balaur.space/admin/` | Public, API key required |
 | Headscale API | `https://headscale.balaur.space/` | Public |
 | Herdr | `https://herdr.balaur.space/` | Tailnet only |
+| llama.cpp | `https://llama.balaur.space/` | Tailnet only |
 | Syncthing | `https://syncthing.balaur.space/` | Tailnet only |
 | XFCE web desktop | `https://desktop.balaur.space/` | Tailnet only |
 
@@ -69,7 +70,11 @@ The wildcard public DNS record must exist before deploying a certificate for a n
 
 ## Tailnet Services
 
-The dashboard monitors Headscale, Syncthing, the web desktop, and Herdr through their loopback listeners. nginx is the only network-facing entry point for their web interfaces and routes each Tailnet-only subdomain over standard HTTPS.
+The dashboard monitors Headscale, Syncthing, the web desktop, Herdr, and llama.cpp through their loopback listeners. nginx is the only network-facing entry point for their web interfaces and routes each Tailnet-only subdomain over standard HTTPS.
+
+llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_K_M GGUF from Hugging Face into `/var/cache/llama-cpp` on its first start. The model download is about 16.9 GB, with an additional multimodal projector downloaded automatically when available. It uses a 64K shared context, two request slots, Vulkan acceleration on the Radeon 890M, flash attention, and Gemma 4's 462 MB MTP drafter for lossless speculative decoding. The first service start remains unavailable until the downloads and model load complete; follow progress with `journalctl -fu llama-cpp`.
+
+The Vulkan-enabled `llama-server` and related llama.cpp commands are also installed system-wide. llama.cpp is pinned to release `b10336` because Gemma 4's MTP drafter requires architecture support newer than the Nixpkgs package.
 
 Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI through a loopback-only ttyd process as the `alex` user, so it shares the CLI's persistent sessions and development environment.
 

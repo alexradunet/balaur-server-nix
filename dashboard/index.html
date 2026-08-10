@@ -81,6 +81,7 @@
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
         <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
         <a class="service" id="herdr"><span>Herdr<br><small>Agent terminal</small></span><i class="status"></i></a>
+        <a class="service" id="llama"><span>llama.cpp<br><small>Gemma 4 local AI</small></span><i class="status"></i></a>
       </section>
       <p id="error">Host status is temporarily unavailable.</p>
     </main>
@@ -90,6 +91,7 @@
       byId("syncthing").href = "https://syncthing.balaur.space";
       byId("desktop").href = "https://desktop.balaur.space";
       byId("herdr").href = "https://herdr.balaur.space";
+      byId("llama").href = "https://llama.balaur.space";
 
       const storage = (used, total) => {
         const units = ["B", "KiB", "MiB", "GiB", "TiB"];
