@@ -3,6 +3,8 @@
 let
   inherit (pkgs) lib;
 
+  headscalePolicy = builtins.fromJSON (builtins.readFile config.services.headscale.settings.policy.path);
+
   tailnetOnly =
     location:
     lib.all (directive: lib.hasInfix directive location.extraConfig) [
@@ -105,6 +107,21 @@ let
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
       message = "proxied application services must bind to loopback";
+    }
+    {
+      assertion =
+        config.services.headscale.settings.policy.mode == "file"
+        && headscalePolicy.tagOwners."tag:admin" == [ "alex@" ]
+        && headscalePolicy.hosts.balaur == "100.64.0.1/32"
+        &&
+          headscalePolicy.acls == [
+            {
+              action = "accept";
+              src = [ "tag:admin" ];
+              dst = [ "balaur:*" ];
+            }
+          ];
+      message = "only tagged admin devices may initiate tailnet connections to balaur";
     }
     {
       assertion =

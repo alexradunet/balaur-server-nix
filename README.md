@@ -100,6 +100,24 @@ Headplane asks for a Headscale API key on first use. Create one on the server wi
 sudo headscale apikeys create
 ```
 
+## Tailnet Access Policy
+
+Headscale only permits devices tagged `tag:admin` to initiate connections to
+Balaur's Tailnet address. User `alex` owns that tag. Untagged devices remain
+enrolled but cannot connect to services on Balaur.
+
+Deploy this change from the local console or LAN, not through a Tailnet SSH
+session: the policy takes effect before any existing client has the tag. After
+deployment, list the nodes and tag each trusted administration device:
+
+```sh
+sudo headscale nodes list
+sudo headscale nodes tag -i NODE_ID -t tag:admin
+```
+
+Confirm the tag with `sudo headscale nodes list` before relying on Tailnet access.
+Removing the tag immediately revokes that device's access to Balaur.
+
 ## Dashboard HTTPS
 
 Headscale does not provide Tailscale-managed HTTPS certificates, so the tailnet services use Let's Encrypt certificates through nginx. Split DNS keeps the services private while allowing public ACME validation:

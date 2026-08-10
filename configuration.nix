@@ -145,6 +145,11 @@ in
     settings = {
       server_url = "https://headscale.balaur.space";
 
+      policy = {
+        mode = "file";
+        path = ./headscale-policy.hujson;
+      };
+
       dns = {
         magic_dns = true;
         base_domain = "tailnet.balaur.space";

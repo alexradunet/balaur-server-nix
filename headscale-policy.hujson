@@ -1,0 +1,15 @@
+{
+  "tagOwners": {
+    "tag:admin": ["alex@"]
+  },
+  "hosts": {
+    "balaur": "100.64.0.1/32"
+  },
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["tag:admin"],
+      "dst": ["balaur:*"]
+    }
+  ]
+}
