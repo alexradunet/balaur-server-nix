@@ -18,6 +18,8 @@
       pkgs = nixpkgs.legacyPackages.${system};
       herdrPackage = herdr.packages.${system}.default;
       piPackage = pkgs.callPackage ./pi.nix { };
+      piSubagentsPackage = pkgs.callPackage ./pi-subagents.nix { };
+      piWebAccessPackage = pkgs.callPackage ./pi-web-access.nix { };
     in
     {
       nixosConfigurations.balaur = nixpkgs.lib.nixosSystem {
@@ -37,6 +39,8 @@
         dashboard = import ./tests/dashboard.nix { inherit pkgs; };
         herdr = herdrPackage;
         pi = piPackage;
+        pi-subagents = piSubagentsPackage;
+        pi-web-access = piWebAccessPackage;
       };
     };
 }

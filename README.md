@@ -74,23 +74,23 @@ sudo env BORG_PASSCOMMAND='cat /var/lib/balaur-backup/passphrase' \
 sudo umount /mnt/balaur-backup
 ```
 
-The invariant check covers the host's boot and filesystem layout, SSH and firewall
-policy, loopback-only services, service enablement, and systemd sandboxing. The
+The invariant check covers the host's boot and filesystem layout, backup safety,
+SSH and firewall policy, loopback-only services, and systemd sandboxing. The
 dashboard check starts the real Node server and verifies its HTTP
 routes, security headers, metrics response, and service status payload.
 
 ## SSH Access
 
-SSH is the only service allowed through the host firewall. Connect from the LAN with
-the server's hostname or LAN address:
+SSH is the only service allowed through the host firewall. Connect from the LAN
+using the server's address:
 
 ```sh
-ssh alex@balaur
+ssh alex@192.168.50.13
 ```
 
-Password authentication remains enabled until an authorized key is added, avoiding
-an accidental lockout during this transition. Root login, keyboard-interactive
-authentication, and X11 forwarding are disabled.
+Authentication uses the declaratively managed `alex@yoga-laptop` Ed25519 key.
+Password authentication, root login, keyboard-interactive authentication, and X11
+forwarding are disabled.
 
 The web services listen only on loopback and share one loopback-only gateway.
 Forward that gateway through SSH when needed:
@@ -98,7 +98,7 @@ Forward that gateway through SSH when needed:
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
   -L 127.0.0.1:8080:127.0.0.1:8080 \
-  alex@balaur
+  alex@192.168.50.13
 ```
 
 Open `http://localhost:8080` in Waterfox. The dashboard links use service-specific

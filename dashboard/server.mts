@@ -3,7 +3,7 @@ import { statfs } from "node:fs/promises";
 import { createServer } from "node:http";
 import { connect } from "node:net";
 
-const host = process.env.DASHBOARD_HOST ?? "0.0.0.0";
+const host = process.env.DASHBOARD_HOST ?? "127.0.0.1";
 const port = Number(process.env.DASHBOARD_PORT ?? "8080");
 const index = await readFile(new URL("index.html", import.meta.url));
 

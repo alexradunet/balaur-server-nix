@@ -9,7 +9,7 @@ pkgs.runCommand "balaur-dashboard-tests"
     ];
   }
   ''
-      export DASHBOARD_HOST=127.0.0.1
+      # Exercise the secure loopback default rather than overriding it.
       export DASHBOARD_PORT=18080
 
       node ${../dashboard}/server.mts >dashboard.log 2>&1 &

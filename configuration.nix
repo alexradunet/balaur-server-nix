@@ -2,6 +2,8 @@
 
 let
   piPackage = pkgs.callPackage ./pi.nix { };
+  piSubagentsPackage = pkgs.callPackage ./pi-subagents.nix { };
+  piWebAccessPackage = pkgs.callPackage ./pi-web-access.nix { };
 
   webGatewayListen = [
     {
@@ -133,12 +135,10 @@ in
       "wheel"
       "networkmanager"
     ];
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJyNg0fSXVLH2obdAQ9lX2LP4NjATTydZxvu6RguwRWx alex@yoga-laptop"
+    ];
   };
-
-  # Share sudo credentials across terminals and non-interactive processes.
-  security.sudo.extraConfig = ''
-    Defaults timestamp_type=global
-  '';
 
   # ------------------------------------------------------------
   # SSH
@@ -151,7 +151,7 @@ in
       AllowUsers = [ "alex" ];
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
-      PasswordAuthentication = true;
+      PasswordAuthentication = false;
       X11Forwarding = false;
     };
   };
@@ -202,7 +202,14 @@ in
     ];
   };
 
-  systemd.tmpfiles.rules = [ "d /mnt/balaur-backup 0700 root root -" ];
+  systemd.tmpfiles.rules = [
+    "d /mnt/balaur-backup 0700 root root -"
+    "d /home/alex/.pi 0755 alex users -"
+    "d /home/alex/.pi/agent 0755 alex users -"
+    "d /home/alex/.pi/agent/extensions 0755 alex users -"
+    "L+ /home/alex/.pi/agent/extensions/pi-subagents - - - - ${piSubagentsPackage}/lib/node_modules/@tintinweb/pi-subagents"
+    "L+ /home/alex/.pi/agent/extensions/pi-web-access - - - - ${piWebAccessPackage}/lib/node_modules/pi-web-access"
+  ];
 
   systemd.services.balaur-backup = {
     description = "Encrypted Borg backup to USB";
