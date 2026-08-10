@@ -293,6 +293,8 @@ in
       "draft-mtp"
       "--spec-draft-n-max"
       "4"
+      "--sleep-idle-seconds"
+      "300"
     ];
   };
 
