@@ -195,7 +195,10 @@ let
           "4"
         ]
         && config.hardware.graphics.enable
-        && config.systemd.services.llama-cpp.environment.XDG_CACHE_HOME == "/var/cache/llama-cpp";
+        && config.systemd.services.llama-cpp.environment.XDG_CACHE_HOME == "/var/cache/llama-cpp"
+        && config.systemd.services.llama-cpp.serviceConfig.ProcSubset == "all"
+        && builtins.elem "-DGGML_HIP:BOOL=TRUE" config.services.llama-cpp.package.cmakeFlags
+        && builtins.elem "-DGGML_VULKAN:BOOL=FALSE" config.services.llama-cpp.package.cmakeFlags;
       message = "llama.cpp must load Gemma 4 with GPU offload and MTP speculative decoding";
     }
   ];

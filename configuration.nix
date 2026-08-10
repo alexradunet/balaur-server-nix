@@ -1,17 +1,22 @@
 { herdrPackage, pkgs, ... }:
 
 let
-  llamaCppPackage = (pkgs.llama-cpp.override { vulkanSupport = true; }).overrideAttrs {
-    version = "10336";
-    src = pkgs.fetchzip {
-      url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10336.tar.gz";
-      hash = "sha256-Yyc+LbZ6BMBww0Wno9DlM3il+ol+ahh3S/r8NbDH/ss=";
-      postFetch = ''
-        echo f401bb1 > "$out/COMMIT"
-      '';
-    };
-    npmDepsHash = "sha256-FHvd2bMvBc9EXrJEzu8EN78oUVSLcOKYCc0232V+L4A=";
-  };
+  llamaCppPackage =
+    (pkgs.llama-cpp.override {
+      rocmSupport = true;
+      rocmGpuTargets = [ "gfx1150" ];
+    }).overrideAttrs
+      {
+        version = "10336";
+        src = pkgs.fetchzip {
+          url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10336.tar.gz";
+          hash = "sha256-Yyc+LbZ6BMBww0Wno9DlM3il+ol+ahh3S/r8NbDH/ss=";
+          postFetch = ''
+            echo f401bb1 > "$out/COMMIT"
+          '';
+        };
+        npmDepsHash = "sha256-FHvd2bMvBc9EXrJEzu8EN78oUVSLcOKYCc0232V+L4A=";
+      };
 in
 {
   # ------------------------------------------------------------
@@ -363,6 +368,7 @@ in
     ];
   };
 
+  systemd.services.llama-cpp.serviceConfig.ProcSubset = pkgs.lib.mkForce "all";
   systemd.services.llama-cpp.environment.XDG_CACHE_HOME = "/var/cache/llama-cpp";
 
   # Xvnc provides a persistent virtual X display without affecting local Sway.
