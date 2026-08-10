@@ -87,14 +87,15 @@
 
     <script>
       const byId = (id) => document.getElementById(id);
-      const serviceUrl = (service, path = "") => {
-        const port = location.port ? `:${location.port}` : "";
-        return `${location.protocol}//${service}.localhost${port}${path}`;
+      const serviceUrl = (port, path = "/") => {
+        const url = new URL(path, location.origin);
+        url.port = port;
+        return url.href;
       };
-      byId("syncthing").href = serviceUrl("syncthing");
-      byId("desktop").href = serviceUrl("desktop", "/vnc.html?autoconnect=1&resize=remote");
-      byId("herdr").href = serviceUrl("herdr");
-      byId("llama").href = serviceUrl("llama");
+      byId("syncthing").href = serviceUrl(8383);
+      byId("desktop").href = serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote");
+      byId("herdr").href = serviceUrl(7681);
+      byId("llama").href = serviceUrl(8081);
 
       const storage = (used, total) => {
         const units = ["B", "KiB", "MiB", "GiB", "TiB"];

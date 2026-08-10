@@ -3,17 +3,6 @@
 let
   inherit (pkgs) lib;
 
-  gatewayHosts = builtins.attrNames config.services.nginx.virtualHosts;
-
-  listensOnlyOnGateway =
-    name:
-    let
-      listeners = config.services.nginx.virtualHosts.${name}.listen;
-    in
-    builtins.length listeners == 1
-    && (builtins.head listeners).addr == "127.0.0.1"
-    && (builtins.head listeners).port == 8080;
-
   hardened =
     service:
     let
@@ -85,11 +74,9 @@ let
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
         && !config.services.syncthing.openDefaultPorts
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
-        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1"
-        && config.services.nginx.enable
-        && gatewayHosts != [ ]
-        && lib.all listensOnlyOnGateway gatewayHosts;
-      message = "application services and the web gateway must bind only to loopback";
+        && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
+        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
+      message = "application services must bind only to loopback";
     }
     {
       assertion = lib.all hardened [
