@@ -79,27 +79,18 @@ in
   console.keyMap = "us";
 
   # ------------------------------------------------------------
-  # Optional local desktop
+  # Principal desktop
   # ------------------------------------------------------------
 
-  # Log in on a TTY and run `sway`; no display manager starts at boot.
-  programs.sway = {
-    enable = true;
-    xwayland.enable = false;
-    extraPackages = with pkgs; [
-      foot
-      luakit
-      wmenu
-    ];
-  };
+  services.xserver.enable = true;
+  services.xserver.autorun = true;
+  services.xserver.displayManager.lightdm.enable = true;
+  services.displayManager.defaultSession = "xfce";
 
-  # XFCE runs only inside the persistent browser-accessible VNC session below.
   services.xserver.desktopManager.xfce = {
     enable = true;
     enableScreensaver = false;
   };
-
-  services.xserver.autorun = false;
   services.pipewire.enable = false;
   services.speechd.enable = false;
 
@@ -274,7 +265,7 @@ in
   systemd.services.llama-cpp.serviceConfig.ProcSubset = pkgs.lib.mkForce "all";
   systemd.services.llama-cpp.environment.XDG_CACHE_HOME = "/var/cache/llama-cpp";
 
-  # Xvnc provides a persistent virtual X display without affecting local Sway.
+  # Xvnc provides a persistent virtual X display alongside the local XFCE session.
   systemd.services.web-desktop-vnc = {
     description = "Web desktop VNC server";
     after = [ "network.target" ];

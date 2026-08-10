@@ -120,4 +120,4 @@ Herdr remains available as the `herdr` CLI. Its web endpoint runs the same termi
 
 noVNC and the Herdr web terminal do not have an additional application authentication layer. They must remain bound to loopback and accessed only through SSH forwarding.
 
-The web desktop consists of a persistent TigerVNC display, an XFCE session, and a loopback-only noVNC gateway. It is independent of the optional local Sway session.
+XFCE is the host's principal local desktop and starts through LightDM. The web desktop uses a separate persistent TigerVNC display with an XFCE session and a loopback-only noVNC gateway.

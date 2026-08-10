@@ -101,6 +101,15 @@ let
     }
     {
       assertion =
+        config.services.xserver.enable
+        && config.services.xserver.autorun
+        && config.services.xserver.displayManager.lightdm.enable
+        && config.services.displayManager.defaultSession == "xfce"
+        && config.services.xserver.desktopManager.xfce.enable;
+      message = "XFCE must be the principal desktop and start through LightDM";
+    }
+    {
+      assertion =
         !config.services.headscale.enable
         && !config.services.headplane.enable
         && !config.services.nginx.enable
