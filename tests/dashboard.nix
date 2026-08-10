@@ -28,6 +28,9 @@ pkgs.runCommand "balaur-dashboard-tests"
       grep --ignore-case '^content-security-policy:' headers
       grep --ignore-case '^x-frame-options: DENY' headers
     grep --fixed-strings '<title>balaur</title>' index.html
+    grep --fixed-strings 'serviceUrl("syncthing")' index.html
+    grep --fixed-strings 'serviceUrl("desktop", "/vnc.html?autoconnect=1&resize=remote")' index.html
+    grep --fixed-strings 'service}.localhost' index.html
 
       curl --silent --fail --output status.json http://127.0.0.1:18080/api/status
       jq --exit-status '

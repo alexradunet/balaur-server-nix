@@ -92,25 +92,26 @@ Password authentication remains enabled until an authorized key is added, avoidi
 an accidental lockout during this transition. Root login, keyboard-interactive
 authentication, and X11 forwarding are disabled.
 
-The web services listen only on loopback. Forward them through SSH when needed:
+The web services listen only on loopback and share one loopback-only gateway.
+Forward that gateway through SSH when needed:
 
 ```sh
-ssh -N alex@balaur \
-  -L 8080:127.0.0.1:8080 \
-  -L 8383:127.0.0.1:8383 \
-  -L 6080:127.0.0.1:6080 \
-  -L 7681:127.0.0.1:7681 \
-  -L 8081:127.0.0.1:8081
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8080:127.0.0.1:8080 \
+  alex@balaur
 ```
 
-The dashboard is then available at `http://localhost:8080`. Its links use the other
-forwarded localhost ports.
+Open `http://localhost:8080` in Waterfox. The dashboard links use service-specific
+`*.localhost` names on the same forwarded port, so they work in the same browser
+without a SOCKS proxy, browser configuration, or additional SSH forwards. Keep the
+SSH command running while using the services.
 
 ## Local Services
 
 The dashboard monitors Syncthing, the web desktop, Herdr, and llama.cpp through
-their loopback listeners. No reverse proxy, public HTTPS endpoint, VPN, or overlay
-network is configured.
+their loopback listeners. A loopback-only Nginx gateway routes `*.localhost` hostnames
+to those services. It is reachable only through SSH; no public HTTPS endpoint, VPN,
+or overlay network is configured.
 
 llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_K_M GGUF from Hugging Face into `/var/cache/llama-cpp` on its first start. The model download is about 16.9 GB, with an additional multimodal projector downloaded automatically when available. It uses a 64K shared context, two request slots, ROCm acceleration targeting the Radeon 890M's `gfx1150` architecture, flash attention, and Gemma 4's 462 MB MTP drafter for lossless speculative decoding. The first service start remains unavailable until the downloads and model load complete; follow progress with `journalctl -fu llama-cpp`.
 

@@ -3,6 +3,25 @@
 let
   inherit (pkgs) lib;
 
+  gatewayHosts = [
+    "dashboard.localhost"
+    "syncthing.localhost"
+    "desktop.localhost"
+    "herdr.localhost"
+    "llama.localhost"
+  ];
+
+  gatewayHost = name: config.services.nginx.virtualHosts.${name};
+
+  listensOnlyOnGateway =
+    name:
+    let
+      listeners = (gatewayHost name).listen;
+    in
+    builtins.length listeners == 1
+    && (builtins.head listeners).addr == "127.0.0.1"
+    && (builtins.head listeners).port == 8080;
+
   hardened =
     service:
     let
@@ -96,8 +115,22 @@ let
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
         && !config.services.syncthing.openDefaultPorts
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
+        && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8082"
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";
-      message = "application services must bind to loopback for SSH forwarding";
+      message = "application services must bind to loopback behind the web gateway";
+    }
+    {
+      assertion =
+        config.services.nginx.enable
+        && lib.all listensOnlyOnGateway gatewayHosts
+        && (gatewayHost "dashboard.localhost").default
+        && (gatewayHost "dashboard.localhost").locations."/".proxyPass == "http://127.0.0.1:8082"
+        && (gatewayHost "syncthing.localhost").locations."/".proxyPass == "http://127.0.0.1:8383"
+        && (gatewayHost "desktop.localhost").locations."/".proxyPass == "http://127.0.0.1:6080"
+        && (gatewayHost "herdr.localhost").locations."/".proxyPass == "http://127.0.0.1:7681"
+        && (gatewayHost "llama.localhost").locations."/".proxyPass == "http://127.0.0.1:8081"
+        && lib.all (name: (gatewayHost name).locations."/".proxyWebsockets) gatewayHosts;
+      message = "the loopback web gateway must route every service through port 8080";
     }
     {
       assertion =
@@ -112,7 +145,6 @@ let
       assertion =
         !config.services.headscale.enable
         && !config.services.headplane.enable
-        && !config.services.nginx.enable
         && !config.services.tailscale.enable
         && config.services.llama-cpp.enable
         && config.services.syncthing.enable
@@ -125,7 +157,7 @@ let
               "web-desktop-session"
               "web-desktop-vnc"
             ];
-      message = "VPN and public web ingress must remain disabled while local services start at boot";
+      message = "VPN access must remain disabled while local services start at boot";
     }
     {
       assertion = lib.all hardened [

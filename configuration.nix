@@ -3,6 +3,34 @@
 let
   piPackage = pkgs.callPackage ./pi.nix { };
 
+  webGatewayListen = [
+    {
+      addr = "127.0.0.1";
+      port = 8080;
+    }
+  ];
+
+  webGatewayProxy = port: {
+    listen = webGatewayListen;
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:${toString port}";
+      proxyWebsockets = true;
+      extraConfig = ''
+        # Preserve the gateway port for ttyd's origin check without trusting a
+        # client-supplied Host header.
+        proxy_set_header Host $server_name:$server_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+      '';
+    };
+  };
+
   llamaCppPackage =
     (pkgs.llama-cpp.override {
       rocmSupport = true;
@@ -131,6 +159,24 @@ in
   # ------------------------------------------------------------
   # Services
   # ------------------------------------------------------------
+
+  # Multiplex every browser service over one loopback-only SSH forward. Service
+  # subdomains avoid the fragile path rewriting that these applications would
+  # otherwise require.
+  services.nginx = {
+    enable = true;
+    clientMaxBodySize = "64m";
+
+    virtualHosts = {
+      "dashboard.localhost" = (webGatewayProxy 8082) // {
+        default = true;
+      };
+      "syncthing.localhost" = webGatewayProxy 8383;
+      "desktop.localhost" = webGatewayProxy 6080;
+      "herdr.localhost" = webGatewayProxy 7681;
+      "llama.localhost" = webGatewayProxy 8081;
+    };
+  };
 
   services.syncthing = {
     enable = true;
@@ -410,7 +456,7 @@ in
 
     environment = {
       DASHBOARD_HOST = "127.0.0.1";
-      DASHBOARD_PORT = "8080";
+      DASHBOARD_PORT = "8082";
     };
 
     serviceConfig = {
