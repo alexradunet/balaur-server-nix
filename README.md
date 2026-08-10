@@ -98,6 +98,7 @@ needed:
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
   -L 127.0.0.1:8080:127.0.0.1:8080 \
+  -L 127.0.0.1:8123:127.0.0.1:8123 \
   -L 127.0.0.1:8383:127.0.0.1:8383 \
   -L 127.0.0.1:6080:127.0.0.1:6080 \
   -L 127.0.0.1:7681:127.0.0.1:7681 \
@@ -110,9 +111,21 @@ service's forwarded port. Keep the SSH command running while using the services.
 
 ## Local Services
 
-The dashboard monitors Syncthing, the web desktop, Herdr, and llama.cpp through
-their loopback listeners. They are reachable only through SSH forwarding; no public
-HTTPS endpoint, VPN, or overlay network is configured.
+The dashboard monitors Home Assistant, Syncthing, the web desktop, Herdr, and
+llama.cpp through their loopback listeners. They are reachable only through SSH
+forwarding; no public HTTPS endpoint, VPN, or overlay network is configured.
+
+Home Assistant is available at `http://localhost:8123` while the SSH forward is
+running. Complete its first-run onboarding there. NixOS packages integration
+dependencies declaratively: add any new integration to
+`services.home-assistant.extraComponents` before configuring it in the UI. Wiz,
+Hue, iBeacon, IPP printers, Netatmo, PlayStation Network, Roborock, Samsung TV,
+Radio Browser, and Google Translate are currently included.
+
+Its runtime configuration, automations, database, and credentials are stored in
+`/var/lib/hass`; do not put Home Assistant secrets in this repository. The USB
+Borg job does not currently include this directory, so use Home Assistant's
+built-in backup feature for its state.
 
 llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_K_M GGUF from Hugging Face into `/var/cache/llama-cpp` on its first start. The model download is about 16.9 GB, with an additional multimodal projector downloaded automatically when available. It uses a 64K shared context, two request slots, ROCm acceleration targeting the Radeon 890M's `gfx1150` architecture, flash attention, and Gemma 4's 462 MB MTP drafter for lossless speculative decoding. The first service start remains unavailable until the downloads and model load complete; follow progress with `journalctl -fu llama-cpp`.
 

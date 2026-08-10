@@ -73,6 +73,31 @@ let
         config.services.llama-cpp.host == "127.0.0.1"
         && config.services.syncthing.guiAddress == "127.0.0.1:8383"
         && !config.services.syncthing.openDefaultPorts
+        && config.services.home-assistant.enable
+        && config.services.home-assistant.config.http.server_host == "127.0.0.1"
+        && config.services.home-assistant.config.http.server_port == 8123
+        && lib.all (component: builtins.elem component config.services.home-assistant.extraComponents) [
+          "google_translate"
+          "hue"
+          "ibeacon"
+          "ipp"
+          "netatmo"
+          "playstation_network"
+          "radio_browser"
+          "roborock"
+          "samsungtv"
+          "wiz"
+        ]
+        && !config.services.home-assistant.openFirewall
+        && !config.services.home-assistant.openFirewallForComponents
+        && config.hardware.bluetooth.enable
+        && config.hardware.bluetooth.powerOnBoot
+        && builtins.elem
+          "CAP_NET_ADMIN"
+          config.systemd.services.home-assistant.serviceConfig.CapabilityBoundingSet
+        && builtins.elem
+          "CAP_NET_RAW"
+          config.systemd.services.home-assistant.serviceConfig.CapabilityBoundingSet
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1";

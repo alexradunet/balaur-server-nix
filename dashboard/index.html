@@ -77,6 +77,7 @@
 
       <h2>Services</h2>
       <section class="services">
+        <a class="service" id="home-assistant"><span>Home Assistant<br><small>Home automation</small></span><i class="status"></i></a>
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
         <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
         <a class="service" id="herdr"><span>Herdr<br><small>Agent terminal</small></span><i class="status"></i></a>
@@ -92,6 +93,7 @@
         url.port = port;
         return url.href;
       };
+      byId("home-assistant").href = serviceUrl(8123);
       byId("syncthing").href = serviceUrl(8383);
       byId("desktop").href = serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote");
       byId("herdr").href = serviceUrl(7681);

@@ -8,6 +8,7 @@ const port = Number(process.env.DASHBOARD_PORT ?? "8080");
 const index = await readFile(new URL("index.html", import.meta.url));
 
 const services = [
+  { id: "home-assistant", name: "Home Assistant", host: "127.0.0.1", port: 8123 },
   { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
   { id: "desktop", name: "Web Desktop", host: "127.0.0.1", port: 6080 },
   { id: "herdr", name: "Herdr", host: "127.0.0.1", port: 7681 },

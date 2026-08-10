@@ -142,6 +142,33 @@ in
     openDefaultPorts = false;
   };
 
+  services.home-assistant = {
+    enable = true;
+    openFirewall = false;
+    extraComponents = [
+      "default_config"
+      "esphome"
+      "google_translate"
+      "hue"
+      "ibeacon"
+      "ipp"
+      "met"
+      "netatmo"
+      "playstation_network"
+      "radio_browser"
+      "roborock"
+      "samsungtv"
+      "wiz"
+    ];
+    config = {
+      default_config = { };
+      http = {
+        server_host = "127.0.0.1";
+        server_port = 8123;
+      };
+    };
+  };
+
   # Keep the USB backup offline except while Borg is creating a daily snapshot.
   fileSystems."/mnt/balaur-backup" = {
     device = "/dev/disk/by-label/BALAUR_BACKUP";
@@ -477,6 +504,10 @@ in
     borgbackup
   ];
 
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
   hardware.enableRedistributableFirmware = true;
 
   # DO NOT CHANGE after installation.

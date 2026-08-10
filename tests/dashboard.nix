@@ -28,6 +28,7 @@ pkgs.runCommand "balaur-dashboard-tests"
       grep --ignore-case '^content-security-policy:' headers
       grep --ignore-case '^x-frame-options: DENY' headers
     grep --fixed-strings '<title>balaur</title>' index.html
+    grep --fixed-strings 'serviceUrl(8123)' index.html
     grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
     grep --fixed-strings 'serviceUrl(7681)' index.html
@@ -41,8 +42,8 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.memory.used | type == "number")
         and (.memory.total > 0)
         and (.disk.total > 0)
-        and (.services | length == 4)
-        and ([.services[].id] == ["syncthing", "desktop", "herdr", "llama"])
+        and (.services | length == 5)
+        and ([.services[].id] == ["home-assistant", "syncthing", "desktop", "herdr", "llama"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 
