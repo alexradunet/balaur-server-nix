@@ -53,6 +53,22 @@ let
     }
     {
       assertion =
+        config.fileSystems."/mnt/balaur-backup".device == "/dev/disk/by-label/BALAUR_BACKUP"
+        && builtins.elem "noauto" config.fileSystems."/mnt/balaur-backup".options
+        && builtins.elem "d /mnt/balaur-backup 0700 root root -" config.systemd.tmpfiles.rules
+        && config.systemd.timers.balaur-backup.timerConfig.OnCalendar == "daily"
+        && config.systemd.timers.balaur-backup.timerConfig.Persistent
+        &&
+          config.systemd.services.balaur-backup.serviceConfig.LoadCredential
+          == "passphrase:/var/lib/balaur-backup/passphrase"
+        && config.systemd.services.balaur-backup.serviceConfig.Type == "oneshot"
+        &&
+          config.systemd.services.balaur-backup.unitConfig.ConditionPathExists
+          == "/dev/disk/by-label/BALAUR_BACKUP";
+      message = "the daily encrypted USB backup must mount on demand and always unmount afterward";
+    }
+    {
+      assertion =
         config.services.openssh.enable
         && config.services.openssh.settings.AllowUsers == [ "alex" ]
         && config.services.openssh.settings.PermitRootLogin == "no"

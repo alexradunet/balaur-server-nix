@@ -31,6 +31,49 @@ Build the complete host system without creating a `result` symlink:
 nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 ```
 
+## USB Backup
+
+The server creates an encrypted Borg snapshot of `/home/alex` once per day. The
+USB filesystem is mounted only for the backup and is unmounted afterward, including
+when the backup fails. Retention is 7 daily, 4 weekly, and 6 monthly snapshots.
+
+Provision the USB stick once. Confirm its device path carefully with `lsblk` before
+formatting; the following command destroys that partition's existing contents:
+
+```sh
+sudo mkfs.ext4 -L BALAUR_BACKUP /dev/sdX1
+sudo install -d -m 0700 /var/lib/balaur-backup
+sudo sh -c 'umask 077; head -c 48 /dev/urandom | base64 > /var/lib/balaur-backup/passphrase'
+```
+
+Store a copy of `/var/lib/balaur-backup/passphrase` somewhere secure outside this
+server. The Borg repository cannot be recovered without it. Then deploy and test the
+backup immediately:
+
+```sh
+sudo nixos-rebuild switch --flake .#balaur
+sudo systemctl start balaur-backup.service
+sudo journalctl -u balaur-backup.service
+```
+
+The first run initializes `/mnt/balaur-backup/borg`. Check timer scheduling and
+verify that the stick is no longer mounted after a run with:
+
+```sh
+systemctl list-timers balaur-backup.timer
+findmnt /mnt/balaur-backup
+```
+
+After the first successful run, mount the stick and export Borg's repository key.
+Keep that export together with the passphrase copy, outside the server:
+
+```sh
+sudo mount /mnt/balaur-backup
+sudo env BORG_PASSCOMMAND='cat /var/lib/balaur-backup/passphrase' \
+  borg key export /mnt/balaur-backup/borg /var/lib/balaur-backup/repository-key
+sudo umount /mnt/balaur-backup
+```
+
 The invariant check covers the host's boot and filesystem layout, SSH and firewall
 policy, loopback-only services, MagicDNS records, nginx routes and access controls,
 service enablement, runtime secret generation, and systemd
