@@ -282,6 +282,7 @@ else
     { nativeBuildInputs = [ config.services.flexget.package ]; }
     ''
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    test -f ${config.services.flexget.package}/${pkgs.python3.sitePackages}/flexget/ui/v2/dist/index.html
     printf '%s\n' ${lib.escapeShellArg config.services.flexget.config} \
       | grep --fixed-strings -- "password: '{? qbittorrent.password ?}'"
 

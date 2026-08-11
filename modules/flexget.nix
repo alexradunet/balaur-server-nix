@@ -8,6 +8,21 @@ let
   fileListSecret = "/srv/secrets/flexget-filelist.json";
   webSecret = "/srv/secrets/flexget-webui-password";
 
+  # nixpkgs builds FlexGet from the GitHub source tree, which does not contain
+  # the compiled Web UI. Copy the matching, upstream-built assets from the
+  # official wheel into the otherwise unchanged nixpkgs package.
+  flexgetWheel = pkgs.fetchurl {
+    url = "https://files.pythonhosted.org/packages/1a/20/1c30e43fb96df99ca59a791476decf1fc41ca1306f866eb31da2bb939c3e/flexget-3.19.21-py3-none-any.whl";
+    hash = "sha256-8N+6xwnGjkeHRKBsNvZeRzEqra44UPwUZtvf+FYWuNM=";
+  };
+  flexgetWithWebUI = pkgs.flexget.overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.unzip ];
+    postInstall = (old.postInstall or "") + ''
+      ${pkgs.unzip}/bin/unzip -q ${flexgetWheel} \
+        'flexget/ui/v2/dist/*' -d "$out/${pkgs.python3.sitePackages}"
+    '';
+  });
+
   prepareSecrets = pkgs.writeShellScript "flexget-prepare-secrets" ''
     set -euo pipefail
     umask 0077
@@ -144,7 +159,7 @@ PY
     trap '${pkgs.coreutils}/bin/rm -f "$password_file"' EXIT
     password="$(<"$password_file")"
     [[ -n "$password" ]]
-    ${pkgs.flexget}/bin/flexget -c ${configFile} web passwd "$password"
+    ${flexgetWithWebUI}/bin/flexget -c ${configFile} web passwd "$password"
   '';
 in
 {
@@ -156,6 +171,7 @@ in
 
   services.flexget = {
     enable = true;
+    package = flexgetWithWebUI;
     user = "flexget";
     homeDir = home;
     interval = "15m";
