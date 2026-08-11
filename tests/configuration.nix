@@ -127,6 +127,12 @@ let
         && lib.versionAtLeast config.boot.kernelPackages.kernel.version "7.0"
         && config.services.syncthing.guiAddress == "0.0.0.0:8383"
         && !config.services.syncthing.openDefaultPorts
+        && !config.services.syncthing.overrideDevices
+        && !config.services.syncthing.overrideFolders
+        && config.services.syncthing.settings.folders.personal.path == "/srv/personal"
+        && config.services.syncthing.settings.folders.personal.type == "sendreceive"
+        && config.services.syncthing.settings.folders.personal.ignorePatterns == [ "/lost+found" ]
+        && config.systemd.services.syncthing.unitConfig.RequiresMountsFor == [ "/srv/personal" ]
         && config.nixarr.enable
         && config.nixarr.mediaDir == "/srv/media/ssd0"
         && config.nixarr.stateDir == "/srv/app-data"
