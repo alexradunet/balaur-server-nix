@@ -205,6 +205,7 @@ let
         && config.systemd.services.qbittorrent.vpnConfinement.enable
         && config.systemd.services.qbittorrent.vpnConfinement.vpnNamespace == "wg"
         && config.vpnNamespaces.wg.wireguardConfigFile == "/srv/secrets/protonvpn.conf"
+        && lib.hasInfix "wg-route-proton-dns" (toString config.systemd.services.wg.serviceConfig.ExecStartPost)
         && builtins.any (
           entry: entry.port == 6881 && entry.protocol == "both"
         ) config.vpnNamespaces.wg.openVPNPorts

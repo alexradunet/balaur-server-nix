@@ -270,6 +270,28 @@
     }
   ];
 
+  # Nixarr also adds a 10.0.0.0/8 route through the bridge so services in the
+  # namespace can reach private host networks. Proton's DNS (10.2.0.1) is in
+  # that range, so without this more-specific route DNS queries never reach
+  # the VPN gateway and every tracker appears to be unavailable.
+  systemd.services.wg.serviceConfig.ExecStartPost = pkgs.writeShellScript "wg-route-proton-dns" ''
+    set -euo pipefail
+    ${pkgs.gawk}/bin/awk -F= '
+      /^[[:space:]]*DNS[[:space:]]*=/ {
+        value = $2
+        gsub(/[[:space:]]/, "", value)
+        count = split(value, dns, ",")
+        for (i = 1; i <= count; i++) print dns[i]
+      }
+    ' /srv/secrets/protonvpn.conf |
+      while read -r dns; do
+        case "$dns" in
+          *:*) ${pkgs.iproute2}/bin/ip -6 -n wg route replace "$dns/128" dev wg0 ;;
+          *) ${pkgs.iproute2}/bin/ip -n wg route replace "$dns/32" dev wg0 ;;
+        esac
+      done
+  '';
+
   # VPN-Confinement gives qBittorrent a fail-closed WireGuard namespace.
   # Preserve the existing localhost/LAN endpoint used by the Arr applications.
   systemd.services.qbt-webui-proxy = {
