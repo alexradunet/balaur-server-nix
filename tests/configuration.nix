@@ -129,6 +129,10 @@ let
         && config.nix.optimise.automatic
         && config.zramSwap.enable
         && config.zramSwap.memoryPercent == 25
+        && config.services.smartd.enable
+        && config.services.smartd.autodetect
+        && !config.services.smartd.notifications.mail.enable
+        && !config.services.smartd.notifications.x11.enable
         && lib.hasInfix "flm serve qwen3.6-moe:35b-a3b --host 0.0.0.0 --port 8081 --ctx-len 32768 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
         && config.systemd.services.fastflowlm.serviceConfig.LimitMEMLOCK == "infinity"
         && config.systemd.services.fastflowlm.serviceConfig.DeviceAllow == [ "/dev/accel/accel0 rw" ]
