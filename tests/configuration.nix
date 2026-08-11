@@ -34,6 +34,19 @@ let
     }
     {
       assertion =
+        config.fileSystems."/srv/app-data".device == "/dev/disk/by-label/BALAUR_APP_DATA"
+        && config.fileSystems."/srv/personal".device == "/dev/disk/by-label/BALAUR_PERSONAL"
+        && config.fileSystems."/srv/media/ssd0".device == "/dev/disk/by-label/BALAUR_MEDIA_0"
+        && config.fileSystems."/srv/media/ssd1".device == "/dev/disk/by-label/BALAUR_MEDIA_1"
+        && lib.all
+          (path: config.fileSystems.${path}.fsType == "ext4")
+          [ "/srv/app-data" "/srv/personal" "/srv/media/ssd0" "/srv/media/ssd1" ]
+        && builtins.hasAttr "media" config.users.groups
+        && builtins.elem "media" config.users.users.alex.extraGroups;
+      message = "application, personal, and replaceable-media storage layout must remain stable";
+    }
+    {
+      assertion =
         config.fileSystems."/mnt/balaur-backup".device == "/dev/disk/by-label/BALAUR_BACKUP"
         && lib.all (option: builtins.elem option config.fileSystems."/mnt/balaur-backup".options) [
           "noauto"

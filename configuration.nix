@@ -106,6 +106,7 @@ in
     extraGroups = [
       "wheel"
       "networkmanager"
+      "media"
     ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJyNg0fSXVLH2obdAQ9lX2LP4NjATTydZxvu6RguwRWx alex@yoga-laptop"
@@ -169,6 +170,46 @@ in
     };
   };
 
+  users.groups.media = { };
+
+  # Mirrored application state for services such as Jellyfin and Immich.
+  fileSystems."/srv/app-data" = {
+    device = "/dev/disk/by-label/BALAUR_APP_DATA";
+    fsType = "ext4";
+    options = [
+      "nofail"
+      "nodev"
+      "nosuid"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+
+  # Mirrored personal data, including the local photo archive.
+  fileSystems."/srv/personal" = {
+    device = "/dev/disk/by-label/BALAUR_PERSONAL";
+    fsType = "ext4";
+    options = [
+      "nofail"
+      "nodev"
+      "nosuid"
+      "noexec"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+
+  # Independent, non-redundant storage for replaceable downloaded media.
+  fileSystems."/srv/media/ssd0" = {
+    device = "/dev/disk/by-label/BALAUR_MEDIA_0";
+    fsType = "ext4";
+    options = [ "nofail" "nodev" "nosuid" "noexec" ];
+  };
+
+  fileSystems."/srv/media/ssd1" = {
+    device = "/dev/disk/by-label/BALAUR_MEDIA_1";
+    fsType = "ext4";
+    options = [ "nofail" "nodev" "nosuid" "noexec" ];
+  };
+
   # Keep the USB backup offline except while Borg is creating a daily snapshot.
   fileSystems."/mnt/balaur-backup" = {
     device = "/dev/disk/by-label/BALAUR_BACKUP";
@@ -184,6 +225,11 @@ in
   };
 
   systemd.tmpfiles.rules = [
+    "d /srv/app-data 2775 root media -"
+    "d /srv/personal 2775 alex media -"
+    "d /srv/media 2775 root media -"
+    "d /srv/media/ssd0 2775 alex media -"
+    "d /srv/media/ssd1 2775 alex media -"
     "d /mnt/balaur-backup 0700 root root -"
     "d /home/alex/.pi 0755 alex users -"
     "d /home/alex/.pi/agent 0755 alex users -"
@@ -502,6 +548,7 @@ in
     piPackage
     pciutils
     usbutils
+    gptfdisk
     mdadm
     borgbackup
   ];

@@ -31,6 +31,63 @@ Build the complete host system without creating a `result` symlink:
 nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 ```
 
+## Data Storage
+
+The free space on both NVMe drives is divided into 125 GiB of mirrored
+application data, 400 GiB of mirrored personal data, and two independent
+filesystems using all remaining space (roughly 277 GiB each) for replaceable
+downloads.
+
+| Mount | Usable size | Redundancy |
+| --- | ---: | --- |
+| `/srv/app-data` | 125 GiB | RAID1 |
+| `/srv/personal` | 400 GiB | RAID1 |
+| `/srv/media/ssd0` | ~277 GiB | none |
+| `/srv/media/ssd1` | ~277 GiB | none |
+
+Provision this layout once. **The following commands destroy both existing `p3`
+partitions.** Confirm that they are the unused 802.5 GiB partitions before
+continuing. Do not change partitions 1 or 2; they contain EFI and the OS RAID.
+
+```sh
+sudo nixos-rebuild switch --flake .#balaur
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
+
+for disk in /dev/nvme0n1 /dev/nvme1n1; do
+  sudo sgdisk --delete=3 \
+    --new=3:0:+125G --typecode=3:fd00 --change-name=3:APP_DATA_RAID \
+    --new=4:0:+400G --typecode=4:fd00 --change-name=4:PERSONAL_RAID \
+    --new=5:0:0 --typecode=5:8300 --change-name=5:MEDIA \
+    "$disk"
+done
+sudo partprobe /dev/nvme0n1 /dev/nvme1n1
+
+sudo mdadm --create /dev/md/app-data --metadata=1.2 --level=1 \
+  --raid-devices=2 /dev/nvme0n1p3 /dev/nvme1n1p3
+sudo mdadm --create /dev/md/personal --metadata=1.2 --level=1 \
+  --raid-devices=2 /dev/nvme0n1p4 /dev/nvme1n1p4
+
+sudo mkfs.ext4 -L BALAUR_APP_DATA /dev/md/app-data
+sudo mkfs.ext4 -L BALAUR_PERSONAL /dev/md/personal
+sudo mkfs.ext4 -L BALAUR_MEDIA_0 /dev/nvme0n1p5
+sudo mkfs.ext4 -L BALAUR_MEDIA_1 /dev/nvme1n1p5
+sudo nixos-rebuild switch --flake .#balaur
+```
+
+Verify the resulting filesystems and initial RAID synchronization:
+
+```sh
+findmnt /srv/app-data /srv/personal /srv/media/ssd0 /srv/media/ssd1
+cat /proc/mdstat
+sudo mdadm --detail /dev/md/app-data
+sudo mdadm --detail /dev/md/personal
+```
+
+The setgid directories and shared `media` group allow `alex` and future
+Jellyfin or Immich service accounts to share files without making them
+world-writable. RAID is not a backup; Google Photos remains the off-site copy
+of the personal photo library.
+
 ## USB Backup
 
 The server creates an encrypted Borg snapshot of `/home/alex` once per day. The
