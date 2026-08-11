@@ -116,52 +116,88 @@ let
     }
     {
       assertion =
-        config.services.llama-cpp.host == "0.0.0.0"
+        config.systemd.services.fastflowlm.environment.FLM_MODEL_PATH == "/srv/app-data/fastflowlm/models"
+        && config.systemd.services.fastflowlm.environment.FLM_DISABLE_UPDATE_CHECK == "1"
+        && lib.hasInfix "flm serve gemma4-it:e4b --host 0.0.0.0 --port 8081 --ctx-len 65536 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
+        && config.systemd.services.fastflowlm.serviceConfig.LimitMEMLOCK == "infinity"
+        && config.systemd.services.fastflowlm.serviceConfig.DeviceAllow == [ "/dev/accel/accel0 rw" ]
+        && !config.systemd.services.fastflowlm.serviceConfig.PrivateDevices
+        && builtins.elem "render" config.users.users.fastflowlm.extraGroups
+        && builtins.elem "amdxdna" config.boot.kernelModules
+        && lib.versionAtLeast config.boot.kernelPackages.kernel.version "7.0"
         && config.services.syncthing.guiAddress == "0.0.0.0:8383"
         && !config.services.syncthing.openDefaultPorts
-        && config.services.jellyfin.enable
-        && !config.services.jellyfin.openFirewall
-        && config.services.jellyfin.dataDir == "/srv/app-data/jellyfin"
-        && config.services.jellyfin.configDir == "/srv/app-data/jellyfin/config"
-        && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
-        && builtins.elem "media" config.users.users.jellyfin.extraGroups
-        && config.services.prowlarr.enable
-        && !config.services.prowlarr.openFirewall
-        && config.services.prowlarr.dataDir == "/srv/app-data/prowlarr"
-        && config.services.prowlarr.settings.server.port == 9696
-        && config.services.sonarr.enable
-        && config.services.sonarr.dataDir == "/srv/app-data/sonarr"
-        && config.services.radarr.enable
-        && config.services.radarr.dataDir == "/srv/app-data/radarr"
-        && config.services.lidarr.enable
-        && config.services.lidarr.dataDir == "/srv/app-data/lidarr"
-        && config.services.readarr.enable
-        && config.services.readarr.dataDir == "/srv/app-data/readarr"
-        && config.services.whisparr.enable
-        && config.services.whisparr.dataDir == "/srv/app-data/whisparr"
-        && config.services.whisparr.settings.server.port == 6969
-        && config.services.bazarr.enable
-        && config.services.bazarr.dataDir == "/srv/app-data/bazarr"
-        && config.services.qbittorrent.enable
-        && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
-        && config.services.qbittorrent.webuiPort == 8082
-        && config.services.qbittorrent.torrentingPort == 6881
-        && config.systemd.services.qbittorrent.serviceConfig.NetworkNamespacePath == "/run/netns/qbt-vpn"
-        && builtins.elem "qbt-vpn.service" config.systemd.services.qbittorrent.requires
-        && config.systemd.services.qbt-vpn.unitConfig.ConditionPathExists == "/srv/secrets/protonvpn.conf"
-        && builtins.elem "qbittorrent.service" config.systemd.services.qbt-webui-proxy.requires
-        && builtins.elem "qbt-host" config.networking.firewall.trustedInterfaces
-        && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
-        && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
-        && lib.all (user: builtins.elem "media" config.users.users.${user}.extraGroups) [
+        && config.nixarr.enable
+        && config.nixarr.mediaDir == "/srv/media/ssd0"
+        && config.nixarr.stateDir == "/srv/app-data"
+        && config.nixarr.vpn.enable
+        && config.nixarr.vpn.wgConf == "/srv/secrets/protonvpn.conf"
+        && config.users.groups.media.gid == null
+        && config.users.groups.prowlarr.gid == null
+        && lib.all (user: config.users.users.${user}.uid == null) [
+          "jellyfin"
+          "prowlarr"
           "sonarr"
           "radarr"
           "lidarr"
-          "readarr"
           "whisparr"
           "bazarr"
           "qbittorrent"
         ]
+        && lib.all (service: config.nixarr.${service}.enable) [
+          "jellyfin"
+          "prowlarr"
+          "sonarr"
+          "radarr"
+          "lidarr"
+          "whisparr"
+          "bazarr"
+          "qbittorrent"
+        ]
+        && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
+        && config.services.jellyfin.dataDir == "/srv/app-data/jellyfin"
+        && config.services.jellyfin.configDir == "/srv/app-data/jellyfin/config"
+        && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
+        && config.nixarr.prowlarr.stateDir == "/srv/app-data/prowlarr"
+        && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
+        && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
+        && config.nixarr.lidarr.stateDir == "/srv/app-data/lidarr"
+        && config.nixarr.whisparr.stateDir == "/srv/app-data/whisparr"
+        && config.nixarr.bazarr.stateDir == "/srv/app-data/bazarr"
+        && config.services.readarr.enable
+        && config.services.readarr.dataDir == "/srv/app-data/readarr"
+        && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
+        && config.services.qbittorrent.webuiPort == 8082
+        && config.services.qbittorrent.torrentingPort == 6881
+        &&
+          config.services.qbittorrent.serverConfig.BitTorrent."Session\\DefaultSavePath"
+          == "/srv/media/ssd0/downloads/complete"
+        &&
+          config.services.qbittorrent.serverConfig.BitTorrent."Session\\TempPath"
+          == "/srv/media/ssd0/downloads/incomplete"
+        && !config.services.qbittorrent.serverConfig.Preferences."WebUI\\AuthSubnetWhitelistEnabled"
+        && config.services.qbittorrent.serverConfig.Preferences."WebUI\\CSRFProtection"
+        && config.services.qbittorrent.serverConfig.Preferences."WebUI\\LocalHostAuth"
+        && config.systemd.services.qbittorrent.vpnConfinement.enable
+        && config.systemd.services.qbittorrent.vpnConfinement.vpnNamespace == "wg"
+        && config.vpnNamespaces.wg.wireguardConfigFile == "/srv/secrets/protonvpn.conf"
+        && builtins.any (
+          entry: entry.port == 6881 && entry.protocol == "both"
+        ) config.vpnNamespaces.wg.openVPNPorts
+        && builtins.elem "qbittorrent.service" config.systemd.services.qbt-webui-proxy.requires
+        && lib.hasInfix "TCP:192.168.15.1:8082" config.systemd.services.qbt-webui-proxy.serviceConfig.ExecStart
+        && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
+        && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
+        && lib.all (user: config.users.users.${user}.group == "media") [
+          "jellyfin"
+          "sonarr"
+          "radarr"
+          "lidarr"
+          "whisparr"
+          "bazarr"
+          "qbittorrent"
+        ]
+        && builtins.elem "media" config.users.users.readarr.extraGroups
         && config.services.home-assistant.enable
         && config.services.home-assistant.config.http.server_host == "0.0.0.0"
         && config.services.home-assistant.config.http.server_port == 8123

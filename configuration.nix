@@ -9,22 +9,7 @@ let
   piSubagentsPackage = pkgs.callPackage ./pi-subagents.nix { };
   piWebAccessPackage = pkgs.callPackage ./pi-web-access.nix { };
 
-  llamaCppPackage =
-    (pkgs.llama-cpp.override {
-      rocmSupport = true;
-      rocmGpuTargets = [ "gfx1150" ];
-    }).overrideAttrs
-      {
-        version = "10336";
-        src = pkgs.fetchzip {
-          url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10336.tar.gz";
-          hash = "sha256-Yyc+LbZ6BMBww0Wno9DlM3il+ol+ahh3S/r8NbDH/ss=";
-          postFetch = ''
-            echo f401bb1 > "$out/COMMIT"
-          '';
-        };
-        npmDepsHash = "sha256-FHvd2bMvBc9EXrJEzu8EN78oUVSLcOKYCc0232V+L4A=";
-      };
+  fastFlowLMPackage = pkgs.callPackage ./fastflowlm.nix { };
 in
 {
   # ------------------------------------------------------------
@@ -36,7 +21,12 @@ in
     "flakes"
   ];
 
-  nixpkgs.config.allowUnfreePredicate = pkg: pkgs.lib.getName pkg == "obsidian";
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
+    builtins.elem (pkgs.lib.getName pkg) [
+      "fastflowlm"
+      "obsidian"
+    ];
 
   # ------------------------------------------------------------
   # Boot
@@ -160,74 +150,98 @@ in
     openDefaultPorts = false;
   };
 
-  services.jellyfin = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/jellyfin";
-    configDir = "/srv/app-data/jellyfin/config";
-    logDir = "/srv/app-data/jellyfin/log";
+  # Preserve the UIDs/GIDs already assigned on this installed host. Nixarr's
+  # fixed IDs are useful for fresh installs but would orphan existing state and
+  # media files during an in-place migration.
+  util-nixarr.globals = {
+    uids = builtins.mapAttrs (_name: _uid: pkgs.lib.mkForce null) {
+      jellyfin = null;
+      prowlarr = null;
+      sonarr = null;
+      radarr = null;
+      lidarr = null;
+      whisparr = null;
+      bazarr = null;
+      qbittorrent = null;
+    };
+    gids = {
+      media = pkgs.lib.mkForce null;
+      prowlarr = pkgs.lib.mkForce null;
+    };
   };
 
-  services.prowlarr = {
+  # Nixarr owns the media-service users, permissions, state locations, and VPN
+  # confinement. Keep the existing state paths so this is an in-place migration.
+  nixarr = {
     enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/prowlarr";
+    mediaDir = "/srv/media/ssd0";
+    stateDir = "/srv/app-data";
+
+    vpn = {
+      enable = true;
+      wgConf = "/srv/secrets/protonvpn.conf";
+    };
+
+    jellyfin.enable = true;
+    prowlarr.enable = true;
+    sonarr.enable = true;
+    radarr.enable = true;
+    lidarr.enable = true;
+    whisparr.enable = true;
+    bazarr.enable = true;
+
+    qbittorrent = {
+      enable = true;
+      vpn.enable = true;
+      # Keep the native Web UI/API so the existing Arr download-client
+      # configuration remains valid through the host-side proxy below.
+      qui.enable = false;
+      webuiPort = 8082;
+      peerPort = 6881;
+
+      # Readarr and Whisparr do not yet accept qBittorrent 5.2's HTTP 204
+      # authentication response. Keep 5.1 until those clients are updated.
+      package = pkgs.qbittorrent-nox.overrideAttrs (_old: {
+        version = "5.1.4";
+        src = pkgs.fetchFromGitHub {
+          owner = "qbittorrent";
+          repo = "qBittorrent";
+          tag = "release-5.1.4";
+          hash = "sha256-9RfKir/e+8Kvln20F+paXqtWzC3KVef2kNGyk1YpSv4=";
+        };
+      });
+
+      # Match the existing two-disk layout rather than Nixarr's single-disk
+      # defaults. Existing category-specific paths remain in qBittorrent state.
+      extraConfig = {
+        BitTorrent = {
+          "Session\\DefaultSavePath" = "/srv/media/ssd0/downloads/complete";
+          "Session\\TempPath" = "/srv/media/ssd0/downloads/incomplete";
+        };
+        Preferences = {
+          "Downloads\\SavePath" = "/srv/media/ssd0/downloads/complete";
+          "Downloads\\TempPath" = "/srv/media/ssd0/downloads/incomplete";
+          # Do not inherit Nixarr's VPN-subnet authentication bypass: every
+          # LAN request arrives through the namespace bridge/proxy.
+          "WebUI\\AuthSubnetWhitelistEnabled" = false;
+          "WebUI\\CSRFProtection" = true;
+          "WebUI\\LocalHostAuth" = true;
+        };
+      };
+    };
   };
 
-  services.sonarr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/sonarr";
-  };
-
-  services.radarr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/radarr";
-  };
-
-  services.lidarr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/lidarr";
-  };
-
+  # Nixarr no longer provides Readarr, so retain the NixOS service until a
+  # deliberate migration to its successor is made.
   services.readarr = {
     enable = true;
     openFirewall = false;
     dataDir = "/srv/app-data/readarr";
   };
 
-  services.whisparr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/whisparr";
-  };
-
-  services.bazarr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/bazarr";
-  };
-
-  services.qbittorrent = {
-    enable = true;
-    # Readarr and Whisparr do not yet accept qBittorrent 5.2's HTTP 204
-    # authentication response. Keep 5.1 until those clients are updated.
-    package = pkgs.qbittorrent-nox.overrideAttrs (_old: {
-      version = "5.1.4";
-      src = pkgs.fetchFromGitHub {
-        owner = "qbittorrent";
-        repo = "qBittorrent";
-        tag = "release-5.1.4";
-        hash = "sha256-9RfKir/e+8Kvln20F+paXqtWzC3KVef2kNGyk1YpSv4=";
-      };
-    });
-    openFirewall = false;
-    profileDir = "/srv/app-data/qbittorrent";
-    webuiPort = 8082;
-    torrentingPort = 6881;
-  };
+  # Nixarr's Jellyfin layout puts data below stateDir/data. Override only this
+  # path to preserve the existing database during the in-place migration.
+  services.jellyfin.dataDir = pkgs.lib.mkForce "/srv/app-data/jellyfin";
 
   services.home-assistant = {
     enable = true;
@@ -256,20 +270,8 @@ in
     };
   };
 
-  users.groups.media = { };
-  users.groups.prowlarr = { };
-  users.users.prowlarr = {
-    isSystemUser = true;
-    group = "prowlarr";
-  };
-  users.users.jellyfin.extraGroups = [ "media" ];
-  users.users.sonarr.extraGroups = [ "media" ];
-  users.users.radarr.extraGroups = [ "media" ];
-  users.users.lidarr.extraGroups = [ "media" ];
+  # Readarr is the only media service here not managed by Nixarr.
   users.users.readarr.extraGroups = [ "media" ];
-  users.users.whisparr.extraGroups = [ "media" ];
-  users.users.bazarr.extraGroups = [ "media" ];
-  users.users.qbittorrent.extraGroups = [ "media" ];
 
   # Mirrored application state for services such as Jellyfin and Immich.
   fileSystems."/srv/app-data" = {
@@ -335,14 +337,9 @@ in
 
   systemd.tmpfiles.rules = [
     "d /srv/app-data 2775 root media -"
-    "d /srv/app-data/jellyfin 0750 jellyfin jellyfin -"
-    "d /srv/app-data/sonarr 0750 sonarr sonarr -"
-    "d /srv/app-data/radarr 0750 radarr radarr -"
-    "d /srv/app-data/lidarr 0750 lidarr lidarr -"
     "d /srv/app-data/readarr 0750 readarr readarr -"
-    "d /srv/app-data/whisparr 0750 whisparr whisparr -"
-    "d /srv/app-data/bazarr 0750 bazarr bazarr -"
-    "d /srv/app-data/qbittorrent 0750 qbittorrent qbittorrent -"
+    "d /srv/app-data/fastflowlm 0750 fastflowlm fastflowlm -"
+    "d /srv/app-data/fastflowlm/models 0750 fastflowlm fastflowlm -"
     "d /srv/media/ssd0/downloads 2775 qbittorrent media -"
     "d /srv/media/ssd0/downloads/incomplete 2775 qbittorrent media -"
     "d /srv/media/ssd0/downloads/complete 2775 qbittorrent media -"
@@ -454,172 +451,78 @@ in
     };
   };
 
-  services.llama-cpp = {
-    enable = true;
-    host = "0.0.0.0";
-    port = 8081;
-    package = llamaCppPackage;
-    extraFlags = [
-      "--hf-repo"
-      "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
-      "--ctx-size"
-      "65536"
-      "--parallel"
-      "2"
-      "--n-gpu-layers"
-      "999"
-      "--flash-attn"
-      "on"
-      "--spec-type"
-      "draft-mtp"
-      "--spec-draft-n-max"
-      "4"
-      "--sleep-idle-seconds"
-      "300"
+  # FastFlowLM runs Gemma 4 entirely on the Ryzen AI XDNA2 NPU. Linux 7.0+
+  # selects the protocol-7 NPU firmware required by FastFlowLM, while the
+  # portable release bundles the matching XRT userspace stack.
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelModules = [ "amdxdna" ];
+
+  users.groups.fastflowlm = { };
+  users.users.fastflowlm = {
+    isSystemUser = true;
+    group = "fastflowlm";
+    extraGroups = [ "render" ];
+  };
+
+  systemd.services.fastflowlm = {
+    description = "FastFlowLM Ryzen AI NPU model server";
+    wants = [ "network-online.target" ];
+    after = [
+      "network-online.target"
+      "srv-app\\x2ddata.mount"
     ];
+    wantedBy = [ "multi-user.target" ];
+
+    environment = {
+      FLM_DISABLE_UPDATE_CHECK = "1";
+      FLM_MODEL_PATH = "/srv/app-data/fastflowlm/models";
+      HOME = "/var/lib/fastflowlm";
+    };
+
+    serviceConfig = {
+      User = "fastflowlm";
+      Group = "fastflowlm";
+      StateDirectory = "fastflowlm";
+      WorkingDirectory = "/var/lib/fastflowlm";
+      ExecStart = "${fastFlowLMPackage}/bin/flm serve gemma4-it:e4b --host 0.0.0.0 --port 8081 --ctx-len 65536 --cors 0";
+      Restart = "on-failure";
+      RestartSec = 10;
+      LimitMEMLOCK = "infinity";
+
+      DevicePolicy = "closed";
+      DeviceAllow = [ "/dev/accel/accel0 rw" ];
+      PrivateDevices = false;
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      ReadWritePaths = [ "/srv/app-data/fastflowlm/models" ];
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_INET6"
+        "AF_UNIX"
+      ];
+    };
   };
 
-  # Prowlarr's upstream module uses a dynamic user with a custom bind-mounted
-  # data directory. A static service account prevents tmpfiles from revoking
-  # database access during later system activations.
-  systemd.services.prowlarr.serviceConfig = {
-    DynamicUser = pkgs.lib.mkForce false;
-    User = "prowlarr";
-    Group = "prowlarr";
-  };
-  systemd.tmpfiles.settings."10-prowlarr"."/srv/app-data/prowlarr".d = {
-    user = pkgs.lib.mkForce "prowlarr";
-    group = pkgs.lib.mkForce "prowlarr";
-    mode = pkgs.lib.mkForce "0750";
-  };
-
-  # Keep downloaded and imported files writable by every media service.
-  systemd.services.sonarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
-  systemd.services.radarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
-  systemd.services.lidarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
+  # Nixarr sets the shared-media umask for its services. Readarr and Whisparr
+  # still need explicit overrides in their current modules.
   systemd.services.readarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
   systemd.services.whisparr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
-  systemd.services.bazarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
-  # Isolate qBittorrent in a fail-closed Proton WireGuard namespace. The host
-  # proxy preserves both localhost Arr access and the LAN Web UI.
-  boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
-  networking.firewall.trustedInterfaces = [ "qbt-host" ];
-  networking.nat = {
-    enable = true;
-    internalInterfaces = [ "qbt-host" ];
-  };
 
-  systemd.services.qbt-vpn-netns = {
-    description = "qBittorrent VPN network namespace";
-    before = [ "qbt-vpn.service" ];
-    wantedBy = [ "multi-user.target" ];
-    path = [
-      pkgs.iproute2
-      pkgs.nftables
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "qbt-vpn-netns-up" ''
-        set -eu
-        ip netns add qbt-vpn
-        ip link add qbt-host type veth peer name qbt-ns
-        ip link set qbt-ns netns qbt-vpn
-        ip address add 10.200.0.1/30 dev qbt-host
-        ip link set qbt-host up
-        ip netns exec qbt-vpn ip link set lo up
-        ip netns exec qbt-vpn ip address add 10.200.0.2/30 dev qbt-ns
-        ip netns exec qbt-vpn ip link set qbt-ns up
-        ip netns exec qbt-vpn ip route add default via 10.200.0.1
-        ip netns exec qbt-vpn nft -f - <<'EOF'
-        table inet qbt_killswitch {
-          chain input {
-            type filter hook input priority filter; policy drop;
-            iifname "lo" accept
-            ct state established,related accept
-            iifname "qbt-ns" ip saddr 10.200.0.1 tcp dport 8082 accept
-          }
-          chain output {
-            type filter hook output priority filter; policy drop;
-            oifname "lo" accept
-            ct state established,related accept
-            oifname "wg0" accept
-            oifname "qbt-ns" ip daddr 185.163.110.98 udp dport 51820 accept
-            oifname "qbt-ns" ip daddr 10.200.0.1 tcp sport 8082 accept
-          }
-        }
-        EOF
-      '';
-      ExecStop = pkgs.writeShellScript "qbt-vpn-netns-down" ''
-        ip link delete qbt-host 2>/dev/null || true
-        ip netns delete qbt-vpn 2>/dev/null || true
-      '';
-    };
-  };
-
-  systemd.services.qbt-vpn = {
-    description = "Proton WireGuard for qBittorrent";
-    requires = [ "qbt-vpn-netns.service" ];
-    after = [
-      "qbt-vpn-netns.service"
-      "network-online.target"
-    ];
-    wants = [ "network-online.target" ];
-    before = [ "qbittorrent.service" ];
-    path = [
-      pkgs.gawk
-      pkgs.gnugrep
-      pkgs.iproute2
-      pkgs.nftables
-      pkgs.procps
-      pkgs.wireguard-tools
-    ];
-    unitConfig.ConditionPathExists = "/srv/secrets/protonvpn.conf";
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      RuntimeDirectory = "qbt-vpn";
-      RuntimeDirectoryMode = "0700";
-      ExecStart = pkgs.writeShellScript "qbt-vpn-up" ''
-        set -eu
-        # wg-quick's DNS integration would alter host DNS. qBittorrent gets a
-        # private resolv.conf instead and reaches Proton DNS through wg0.
-        awk '!/^[[:space:]]*DNS[[:space:]]*=/' \
-          /srv/secrets/protonvpn.conf > /run/qbt-vpn/wg0.conf
-        chmod 600 /run/qbt-vpn/wg0.conf
-        printf 'nameserver 10.2.0.1\n' > /run/qbt-vpn/resolv.conf
-        ip netns exec qbt-vpn wg-quick up /run/qbt-vpn/wg0.conf
-      '';
-      ExecStop = pkgs.writeShellScript "qbt-vpn-down" ''
-        ip netns exec qbt-vpn wg-quick down /run/qbt-vpn/wg0.conf || true
-      '';
-    };
-  };
-
-  systemd.services.qbittorrent = {
-    requires = [ "qbt-vpn.service" ];
-    after = [ "qbt-vpn.service" ];
-    serviceConfig = {
-      UMask = pkgs.lib.mkForce "0002";
-      NetworkNamespacePath = "/run/netns/qbt-vpn";
-      BindReadOnlyPaths = "/run/qbt-vpn/resolv.conf:/etc/resolv.conf";
-    };
-  };
-
+  # VPN-Confinement gives qBittorrent a fail-closed WireGuard namespace.
+  # Preserve the existing localhost/LAN endpoint used by the Arr applications.
   systemd.services.qbt-webui-proxy = {
-    description = "Host proxy for qBittorrent VPN Web UI";
+    description = "Host proxy for Nixarr qBittorrent Web UI";
     requires = [ "qbittorrent.service" ];
     after = [ "qbittorrent.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Restart = "on-failure";
       SuccessExitStatus = 143;
-      ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:8082,bind=0.0.0.0,reuseaddr,fork TCP:10.200.0.2:8082";
+      ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:8082,bind=0.0.0.0,reuseaddr,fork TCP:192.168.15.1:8082";
     };
   };
-
-  systemd.services.llama-cpp.serviceConfig.ProcSubset = pkgs.lib.mkForce "all";
-  systemd.services.llama-cpp.environment.XDG_CACHE_HOME = "/var/cache/llama-cpp";
 
   # Xvnc provides a persistent virtual X display alongside the local XFCE session.
   systemd.services.web-desktop-vnc = {
@@ -841,7 +744,7 @@ in
     chromium
     obsidian
     herdrPackage
-    llamaCppPackage
+    fastFlowLMPackage
     piPackage
     pciutils
     usbutils

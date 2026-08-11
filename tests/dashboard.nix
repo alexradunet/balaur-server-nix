@@ -41,7 +41,8 @@ pkgs.runCommand "balaur-dashboard-tests"
     grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
     grep --fixed-strings 'serviceUrl(7681)' index.html
-    grep --fixed-strings 'serviceUrl(8081)' index.html
+    grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
+    grep --fixed-strings 'FastFlowLM' index.html
     grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
     grep --fixed-strings 'data.disks.map' index.html
 
@@ -58,7 +59,7 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.disks[0].total > 0)
         and ([.disks[].mounted] | all(type == "boolean"))
         and (.services | length == 14)
-        and ([.services[].id] == ["home-assistant", "jellyfin", "prowlarr", "sonarr", "radarr", "lidarr", "readarr", "whisparr", "bazarr", "qbittorrent", "syncthing", "desktop", "herdr", "llama"])
+        and ([.services[].id] == ["home-assistant", "jellyfin", "prowlarr", "sonarr", "radarr", "lidarr", "readarr", "whisparr", "bazarr", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 

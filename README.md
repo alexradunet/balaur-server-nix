@@ -149,7 +149,7 @@ must not forward any of these ports from the internet.
 ## Local Services
 
 The dashboard monitors Home Assistant, Jellyfin, the Servarr suite, qBittorrent,
-Syncthing, the web desktop, Herdr, and llama.cpp. Their LAN URLs include:
+Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
 
 - Dashboard: `http://192.168.50.13:8080`
 - Home Assistant: `http://192.168.50.13:8123`
@@ -165,7 +165,7 @@ Syncthing, the web desktop, Herdr, and llama.cpp. Their LAN URLs include:
 - Syncthing: `http://192.168.50.13:8383`
 - Web desktop: `http://192.168.50.13:6080`
 - Herdr: `http://192.168.50.13:7681`
-- llama.cpp: `http://192.168.50.13:8081`
+- FastFlowLM models API: `http://192.168.50.13:8081/v1/models`
 
 Jellyfin first-run setup is available at its LAN URL. Add libraries from
 `/srv/media/ssd0` and `/srv/media/ssd1`. Its service account belongs to the
@@ -173,14 +173,18 @@ Jellyfin first-run setup is available at its LAN URL. Add libraries from
 `/srv/app-data/jellyfin`. The replaceable media itself is not included in the
 USB Borg backup.
 
-Prowlarr, Sonarr, Radarr, Lidarr, Readarr, Whisparr, Bazarr, and qBittorrent store their
-state under `/srv/app-data`. Configure authentication in every web UI before
-adding indexers or download clients. On qBittorrent's first start, retrieve its
-temporary admin password with `journalctl -u qbittorrent | grep -i password`, log
-in as `admin`, and immediately set a permanent password.
+Nixarr declaratively manages Jellyfin, Prowlarr, Sonarr, Radarr, Lidarr,
+Whisparr, Bazarr, qBittorrent, their service accounts, shared permissions, and
+state beneath `/srv/app-data`. Readarr remains on the native NixOS module because
+current Nixarr no longer provides it. The migration preserves the installed
+host's existing service UIDs/GIDs and application databases.
 
-Leave qBittorrent's global incomplete-download folder disabled, then create
-categories with these save paths:
+qBittorrent is fail-closed inside Nixarr's WireGuard namespace using
+`/srv/secrets/protonvpn.conf`. A host proxy preserves its existing
+`127.0.0.1:8082` and LAN endpoint, while peer port 6881 is exposed only through
+the VPN. Authentication remains required through the proxy. Its declarative
+default and incomplete paths are `/srv/media/ssd0/downloads/complete` and
+`/srv/media/ssd0/downloads/incomplete`; keep these category save paths:
 
 - `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
 - `whisparr`: `/srv/media/ssd0/downloads/complete/whisparr`
@@ -206,9 +210,17 @@ Its runtime configuration, automations, database, and credentials are stored in
 Borg job does not currently include this directory, so use Home Assistant's
 built-in backup feature for its state.
 
-llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_K_M GGUF from Hugging Face into `/var/cache/llama-cpp` on its first start. The model download is about 16.9 GB, with an additional multimodal projector downloaded automatically when available. It uses a 64K shared context, two request slots, ROCm acceleration targeting the Radeon 890M's `gfx1150` architecture, flash attention, and Gemma 4's 462 MB MTP drafter for lossless speculative decoding. The first service start remains unavailable until the downloads and model load complete; follow progress with `journalctl -fu llama-cpp`. After five idle minutes, llama.cpp unloads the model and KV cache from RAM and VRAM, then reloads them automatically on the next inference request.
+FastFlowLM runs the instruction-tuned `gemma4-it:e4b` model on the Ryzen AI XDNA2 NPU with a 64K context. Its OpenAI-compatible API remains on port 8081, with endpoints below `/v1`; it does not provide the old llama.cpp web UI. The first service start downloads FastFlowLM's NPU-optimized model files from Hugging Face into `/srv/app-data/fastflowlm/models`, so the API remains unavailable until that download and model load finish. Follow progress with `journalctl -fu fastflowlm`.
 
-The ROCm-enabled `llama-server` and related llama.cpp commands are also installed system-wide. llama.cpp is pinned to release `b10336` because Gemma 4's MTP drafter requires architecture support newer than the Nixpkgs package.
+The portable FastFlowLM runtime bundles its XRT userspace libraries. NixOS uses Linux 7.1 so `amdxdna` loads the required protocol-7 NPU firmware, then grants the service access to `/dev/accel/accel0` with unlimited memlock. Reboot after the first deployment to enter the new kernel. Validate the stack with `sudo -u fastflowlm flm validate`; it should report firmware 1.1.2.64 and `ready: true`. Inspect installed models with `sudo -u fastflowlm env FLM_MODEL_PATH=/srv/app-data/fastflowlm/models flm list --filter installed`, and test the API with:
+
+```sh
+curl http://127.0.0.1:8081/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gemma4-it:e4b","messages":[{"role":"user","content":"Reply with OK"}]}'
+```
+
+FastFlowLM has no API authentication. Keep port 8081 LAN-only and do not forward it from the router. The obsolete llama.cpp GGUF cache under `/var/cache/llama-cpp` is not used and may be deleted manually after confirming FastFlowLM works.
 
 Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI as the `alex` user, so it shares the CLI's persistent sessions and development environment.
 
