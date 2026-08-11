@@ -106,6 +106,7 @@ let
           8123
           8383
           8989
+          9696
           22000
         ]
         &&
@@ -140,27 +141,33 @@ let
         && config.nixarr.vpn.enable
         && config.nixarr.vpn.wgConf == "/srv/secrets/protonvpn.conf"
         && config.users.groups.media.gid == null
+        && config.users.groups.prowlarr.gid == 983
         && lib.all (user: config.users.users.${user}.uid == null) [
           "jellyfin"
           "qbittorrent"
         ]
+        && config.users.users.prowlarr.uid == 986
         && config.users.users.sonarr.uid == 274
         && config.users.users.radarr.uid == 275
         && lib.all (service: config.nixarr.${service}.enable) [
           "jellyfin"
+          "prowlarr"
           "sonarr"
           "radarr"
           "qbittorrent"
         ]
-        && !config.nixarr.prowlarr.enable
+        && config.nixarr.prowlarr.settings-sync.enable-nixarr-apps
         && !config.nixarr.lidarr.enable
         && !config.services.seerr.enable
         && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
         && config.services.jellyfin.dataDir == "/srv/app-data/jellyfin"
         && config.services.jellyfin.configDir == "/srv/app-data/jellyfin/config"
         && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
+        && config.nixarr.prowlarr.stateDir == "/srv/app-data/prowlarr"
+        && !config.systemd.services.prowlarr.serviceConfig.DynamicUser
         && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
         && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
+        && config.services.prowlarr.settings.auth.required == "DisabledForLocalAddresses"
         && config.services.sonarr.settings.auth.required == "DisabledForLocalAddresses"
         && config.services.radarr.settings.auth.required == "DisabledForLocalAddresses"
         && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
@@ -206,6 +213,7 @@ let
         ) [
           { service = "jellyfin"; mount = "/srv/media/ssd0"; }
           { service = "jellyfin"; mount = "/srv/media/ssd1"; }
+          { service = "prowlarr"; mount = "/srv/app-data"; }
           { service = "sonarr"; mount = "/srv/media/ssd1"; }
           { service = "radarr"; mount = "/srv/media/ssd0"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd0"; }

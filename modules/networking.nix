@@ -15,6 +15,7 @@
     8123
     8383
     8989
+    9696
     22000
   ];
   networking.firewall.allowedUDPPorts = [

@@ -1,21 +1,25 @@
 { pkgs, ... }:
 
 {
-  # Sonarr and Radarr were briefly disabled, so their accounts no longer exist
-  # even though their databases retain the installed host's original owners.
-  # Reuse those UIDs exactly; keep the still-existing service IDs dynamic.
+  # Prowlarr, Sonarr, and Radarr were briefly disabled, so their accounts no
+  # longer exist even though their databases retain the original owners. Reuse
+  # those IDs exactly; keep the still-existing service IDs dynamic.
   util-nixarr.globals = {
     uids = {
       jellyfin = pkgs.lib.mkForce null;
+      prowlarr = pkgs.lib.mkForce 986;
       sonarr = pkgs.lib.mkForce 274;
       radarr = pkgs.lib.mkForce 275;
       qbittorrent = pkgs.lib.mkForce null;
     };
-    gids.media = pkgs.lib.mkForce null;
+    gids = {
+      media = pkgs.lib.mkForce null;
+      prowlarr = pkgs.lib.mkForce 983;
+    };
   };
 
-  # Nixarr owns Jellyfin, Sonarr, Radarr, qBittorrent, shared media
-  # permissions, and fail-closed WireGuard confinement.
+  # Nixarr owns Jellyfin, Prowlarr, Sonarr, Radarr, qBittorrent, shared
+  # permissions, settings synchronization, and fail-closed VPN confinement.
   nixarr = {
     enable = true;
     mediaDir = "/srv/media/ssd0";
@@ -27,6 +31,10 @@
     };
 
     jellyfin.enable = true;
+    prowlarr = {
+      enable = true;
+      settings-sync.enable-nixarr-apps = true;
+    };
     sonarr.enable = true;
     radarr.enable = true;
 
@@ -60,8 +68,13 @@
 
   # Local API access is used only by the credential synchronization service;
   # browser clients arriving from the LAN still require authentication.
+  services.prowlarr.settings.auth.required = "DisabledForLocalAddresses";
   services.sonarr.settings.auth.required = "DisabledForLocalAddresses";
   services.radarr.settings.auth.required = "DisabledForLocalAddresses";
+
+  # Nixarr supplies a static account, while the upstream Prowlarr module uses a
+  # DynamicUser by default. Reuse the restored account and database ownership.
+  systemd.services.prowlarr.serviceConfig.DynamicUser = pkgs.lib.mkForce false;
 
   # The storage filesystems are intentionally nofail so the host can still boot
   # degraded. Stop only the affected services instead of using empty mount
@@ -71,6 +84,7 @@
     "/srv/media/ssd0"
     "/srv/media/ssd1"
   ];
+  systemd.services.prowlarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [ "/srv/app-data" ];
   systemd.services.sonarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
     "/srv/app-data"
     "/srv/media/ssd1"

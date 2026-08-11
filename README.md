@@ -188,12 +188,13 @@ router must not forward any of these ports from the internet.
 
 ## Local Services
 
-The dashboard monitors Home Assistant, Jellyfin, Sonarr, Radarr, qBittorrent,
-Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
+The dashboard monitors Home Assistant, Jellyfin, Prowlarr, Sonarr, Radarr,
+qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
 
 - Dashboard: `http://balaur.home.arpa`
 - Home Assistant: `http://balaur.home.arpa:8123`
 - Jellyfin: `http://balaur.home.arpa:8096`
+- Prowlarr: `http://balaur.home.arpa:9696`
 - Sonarr: `http://balaur.home.arpa:8989`
 - Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
@@ -207,11 +208,14 @@ Jellyfin uses `/srv/media/ssd0/library/movies` and
 and persistent state is stored in `/srv/app-data/jellyfin`. Replaceable media
 is not included in the USB Borg backup.
 
-Media automation is deliberately limited to Sonarr, Radarr, and qBittorrent.
-The existing Sonarr and Radarr databases are reused from `/srv/app-data`, so
-monitored titles, quality profiles, and library history survive the rollback.
-Prowlarr, Lidarr, Seerr, and FlexGet remain disabled. Configure only the
-indexers actually needed directly in Sonarr and Radarr.
+Media automation is limited to Prowlarr, Sonarr, Radarr, and qBittorrent. The
+existing application databases are reused from `/srv/app-data`, preserving the
+FileList indexer, monitored titles, quality profiles, and library history.
+Nixarr keeps the enabled Sonarr and Radarr applications registered in Prowlarr
+with Full Sync; Lidarr, Seerr, and FlexGet remain disabled. After the first
+start, remove the stale Lidarr and Whisparr entries under Prowlarr's
+**Settings → Apps**; declarative sync updates desired apps but does not delete
+old application records.
 
 Use `/srv/media/ssd1/library/tv` as Sonarr's root folder and
 `/srv/media/ssd0/library/movies` as Radarr's root folder. A boot-time service

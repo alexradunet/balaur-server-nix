@@ -10,6 +10,7 @@ const index = await readFile(new URL("index.html", import.meta.url));
 const services = [
   { id: "home-assistant", name: "Home Assistant", host: "127.0.0.1", port: 8123 },
   { id: "jellyfin", name: "Jellyfin", host: "127.0.0.1", port: 8096 },
+  { id: "prowlarr", name: "Prowlarr", host: "127.0.0.1", port: 9696 },
   { id: "sonarr", name: "Sonarr", host: "127.0.0.1", port: 8989 },
   { id: "radarr", name: "Radarr", host: "127.0.0.1", port: 7878 },
   { id: "qbittorrent", name: "qBittorrent", host: "127.0.0.1", port: 8082 },

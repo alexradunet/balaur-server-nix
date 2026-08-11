@@ -98,6 +98,7 @@ in
   systemd.tmpfiles.rules = [
     "d /srv/secrets 0700 root root -"
     "d /srv/app-data 2775 root media -"
+    "Z /srv/app-data/prowlarr - prowlarr prowlarr -"
     "d /srv/app-data/fastflowlm 0750 fastflowlm fastflowlm -"
     "d /srv/app-data/fastflowlm/models 0750 fastflowlm fastflowlm -"
     "d /srv/media/ssd0/downloads 2775 qbittorrent media -"
