@@ -33,17 +33,17 @@ nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 
 ## Data Storage
 
-The free space on both NVMe drives is divided into 125 GiB of mirrored
-application data, 400 GiB of mirrored personal data, and two independent
-filesystems using all remaining space (roughly 277 GiB each) for replaceable
-downloads.
+After the 128 GiB OS RAID1, space on both NVMe drives is divided into
+125 GiB of mirrored application data, 100 GiB of mirrored personal data, and
+two independent filesystems using all remaining space (roughly 577 GiB each)
+for replaceable downloads.
 
 | Mount | Usable size | Redundancy |
 | --- | ---: | --- |
 | `/srv/app-data` | 125 GiB | RAID1 |
-| `/srv/personal` | 400 GiB | RAID1 |
-| `/srv/media/ssd0` | ~277 GiB | none |
-| `/srv/media/ssd1` | ~277 GiB | none |
+| `/srv/personal` | 100 GiB | RAID1 |
+| `/srv/media/ssd0` | ~577 GiB | none |
+| `/srv/media/ssd1` | ~577 GiB | none |
 
 Provision this layout once. **The following commands destroy both existing `p3`
 partitions.** Confirm that they are the unused 802.5 GiB partitions before
@@ -56,7 +56,7 @@ lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
 for disk in /dev/nvme0n1 /dev/nvme1n1; do
   sudo sgdisk --delete=3 \
     --new=3:0:+125G --typecode=3:fd00 --change-name=3:APP_DATA_RAID \
-    --new=4:0:+400G --typecode=4:fd00 --change-name=4:PERSONAL_RAID \
+    --new=4:0:+100G --typecode=4:fd00 --change-name=4:PERSONAL_RAID \
     --new=5:0:0 --typecode=5:8300 --change-name=5:MEDIA \
     "$disk"
 done
@@ -138,42 +138,64 @@ routes, security headers, metrics response, and service status payload.
 
 ## SSH Access
 
-SSH is the only service allowed through the host firewall. Connect from the LAN
-using the server's address:
+Connect over SSH with `ssh alex@192.168.50.13`. Authentication uses the
+declaratively managed `alex@yoga-laptop` Ed25519 key; password authentication,
+root login, keyboard-interactive authentication, and X11 forwarding are disabled.
 
-```sh
-ssh alex@192.168.50.13
-```
-
-Authentication uses the declaratively managed `alex@yoga-laptop` Ed25519 key.
-Password authentication, root login, keyboard-interactive authentication, and X11
-forwarding are disabled.
-
-The web services listen only on loopback. Forward their ports through SSH when
-needed:
-
-```sh
-ssh -N -o ExitOnForwardFailure=yes \
-  -L 127.0.0.1:8080:127.0.0.1:8080 \
-  -L 127.0.0.1:8123:127.0.0.1:8123 \
-  -L 127.0.0.1:8383:127.0.0.1:8383 \
-  -L 127.0.0.1:6080:127.0.0.1:6080 \
-  -L 127.0.0.1:7681:127.0.0.1:7681 \
-  -L 127.0.0.1:8081:127.0.0.1:8081 \
-  alex@192.168.50.13
-```
-
-Open `http://localhost:8080` in Waterfox. The dashboard links point to each
-service's forwarded port. Keep the SSH command running while using the services.
+Web services are available directly on the LAN. Open the dashboard at
+`http://192.168.50.13:8080`; its links use the same server address. The router
+must not forward any of these ports from the internet.
 
 ## Local Services
 
-The dashboard monitors Home Assistant, Syncthing, the web desktop, Herdr, and
-llama.cpp through their loopback listeners. They are reachable only through SSH
-forwarding; no public HTTPS endpoint, VPN, or overlay network is configured.
+The dashboard monitors Home Assistant, Jellyfin, the Servarr suite, qBittorrent,
+Syncthing, the web desktop, Herdr, and llama.cpp. Their LAN URLs include:
 
-Home Assistant is available at `http://localhost:8123` while the SSH forward is
-running. Complete its first-run onboarding there. NixOS packages integration
+- Dashboard: `http://192.168.50.13:8080`
+- Home Assistant: `http://192.168.50.13:8123`
+- Jellyfin: `http://192.168.50.13:8096`
+- Prowlarr: `http://192.168.50.13:9696`
+- Sonarr: `http://192.168.50.13:8989`
+- Radarr: `http://192.168.50.13:7878`
+- Lidarr: `http://192.168.50.13:8686`
+- Readarr: `http://192.168.50.13:8787`
+- Whisparr: `http://192.168.50.13:6969`
+- Bazarr: `http://192.168.50.13:6767`
+- qBittorrent: `http://192.168.50.13:8082`
+- Syncthing: `http://192.168.50.13:8383`
+- Web desktop: `http://192.168.50.13:6080`
+- Herdr: `http://192.168.50.13:7681`
+- llama.cpp: `http://192.168.50.13:8081`
+
+Jellyfin first-run setup is available at its LAN URL. Add libraries from
+`/srv/media/ssd0` and `/srv/media/ssd1`. Its service account belongs to the
+`media` group, and persistent application state is stored in
+`/srv/app-data/jellyfin`. The replaceable media itself is not included in the
+USB Borg backup.
+
+Prowlarr, Sonarr, Radarr, Lidarr, Readarr, Whisparr, Bazarr, and qBittorrent store their
+state under `/srv/app-data`. Configure authentication in every web UI before
+adding indexers or download clients. On qBittorrent's first start, retrieve its
+temporary admin password with `journalctl -u qbittorrent | grep -i password`, log
+in as `admin`, and immediately set a permanent password.
+
+Leave qBittorrent's global incomplete-download folder disabled, then create
+categories with these save paths:
+
+- `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
+- `whisparr`: `/srv/media/ssd0/downloads/complete/whisparr`
+- `sonarr`: `/srv/media/ssd1/downloads/complete/sonarr`
+- `lidarr`: `/srv/media/ssd1/downloads/complete/lidarr`
+- `readarr`: `/srv/media/ssd1/downloads/complete/readarr`
+
+Use `/srv/media/ssd0/library/movies`, `/srv/media/ssd0/library/whisparr`,
+`/srv/media/ssd1/library/tv`, `/srv/media/ssd1/library/music`, and
+`/srv/media/ssd1/library/books` as the corresponding root folders. Keeping each category and library on the same SSD
+allows hardlinks and atomic imports. Add qBittorrent to each Arr app at
+`127.0.0.1:8082` with its matching category. Add each Arr app to Prowlarr using
+its `127.0.0.1` URL and API key, preferably with Full Sync.
+
+Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to
 `services.home-assistant.extraComponents` before configuring it in the UI. Wiz,
 Hue, iBeacon, IPP printers, Netatmo, PlayStation Network, Roborock, Samsung TV,
@@ -188,8 +210,8 @@ llama.cpp automatically downloads the instruction-tuned `gemma-4-26B-A4B-it` Q4_
 
 The ROCm-enabled `llama-server` and related llama.cpp commands are also installed system-wide. llama.cpp is pinned to release `b10336` because Gemma 4's MTP drafter requires architecture support newer than the Nixpkgs package.
 
-Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI through a loopback-only ttyd process as the `alex` user, so it shares the CLI's persistent sessions and development environment.
+Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI as the `alex` user, so it shares the CLI's persistent sessions and development environment.
 
-noVNC and the Herdr web terminal do not have an additional application authentication layer. They must remain bound to loopback and accessed only through SSH forwarding.
+**Security:** noVNC and the writable Herdr terminal have no additional application authentication. Any device that can reach these LAN ports can control the desktop or run commands as `alex`. Keep the LAN trusted and do not configure router port forwarding for these services.
 
-XFCE is the host's principal local desktop and starts through LightDM. The web desktop uses a separate persistent TigerVNC display with an XFCE session and a loopback-only noVNC gateway.
+XFCE is the host's principal local desktop and starts through LightDM. The web desktop uses a separate persistent TigerVNC display with an XFCE session; only its noVNC gateway is exposed to the LAN, while raw VNC remains on loopback.

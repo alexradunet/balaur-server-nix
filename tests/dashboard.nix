@@ -29,10 +29,21 @@ pkgs.runCommand "balaur-dashboard-tests"
       grep --ignore-case '^x-frame-options: DENY' headers
     grep --fixed-strings '<title>balaur</title>' index.html
     grep --fixed-strings 'serviceUrl(8123)' index.html
+    grep --fixed-strings 'serviceUrl(8096)' index.html
+    grep --fixed-strings 'serviceUrl(9696)' index.html
+    grep --fixed-strings 'serviceUrl(8989)' index.html
+    grep --fixed-strings 'serviceUrl(7878)' index.html
+    grep --fixed-strings 'serviceUrl(8686)' index.html
+    grep --fixed-strings 'serviceUrl(8787)' index.html
+    grep --fixed-strings 'serviceUrl(6969)' index.html
+    grep --fixed-strings 'serviceUrl(6767)' index.html
+    grep --fixed-strings 'serviceUrl(8082)' index.html
     grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
     grep --fixed-strings 'serviceUrl(7681)' index.html
     grep --fixed-strings 'serviceUrl(8081)' index.html
+    grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
+    grep --fixed-strings 'data.disks.map' index.html
 
       curl --silent --fail --output status.json http://127.0.0.1:18080/api/status
       jq --exit-status '
@@ -41,9 +52,13 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.uptime | type == "number")
         and (.memory.used | type == "number")
         and (.memory.total > 0)
-        and (.disk.total > 0)
-        and (.services | length == 5)
-        and ([.services[].id] == ["home-assistant", "syncthing", "desktop", "herdr", "llama"])
+        and (.disks | length == 5)
+        and ([.disks[].id] == ["os", "app-data", "personal", "media-ssd0", "media-ssd1"])
+        and (.disks[0].mounted == true)
+        and (.disks[0].total > 0)
+        and ([.disks[].mounted] | all(type == "boolean"))
+        and (.services | length == 14)
+        and ([.services[].id] == ["home-assistant", "jellyfin", "prowlarr", "sonarr", "radarr", "lidarr", "readarr", "whisparr", "bazarr", "qbittorrent", "syncthing", "desktop", "herdr", "llama"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 

@@ -33,7 +33,7 @@
       h1 span { color: var(--accent); }
       #updated { color: var(--muted); font-size: 12px; }
 
-      .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); }
       .metric { min-width: 0; padding: 18px; border-right: 1px solid var(--line); }
       .metric:last-child { border-right: 0; }
       .label { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
@@ -42,6 +42,11 @@
       .bar i { display: block; width: 0; height: 100%; background: var(--accent); transition: width .35s ease; }
 
       h2 { margin: 48px 0 14px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
+      .disks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .disk { padding: 18px; border: 1px solid var(--line); background: var(--panel); }
+      .disk-head { display: flex; justify-content: space-between; gap: 12px; }
+      .disk-path { color: var(--muted); font-size: 11px; }
+      .disk.unmounted .value { color: var(--offline); }
       .services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
       .service { display: flex; align-items: center; justify-content: space-between; min-height: 86px; padding: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; transition: border-color .15s, transform .15s; }
       .service:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -54,10 +59,10 @@
       @media (max-width: 680px) {
         main { padding-top: 48px; }
         header { margin-bottom: 28px; }
-        .metrics { grid-template-columns: 1fr 1fr; }
-        .metric:nth-child(2) { border-right: 0; }
-        .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-        .services { grid-template-columns: 1fr; }
+        .metrics { grid-template-columns: 1fr; }
+        .metric { border-right: 0; border-bottom: 1px solid var(--line); }
+        .metric:last-child { border-bottom: 0; }
+        .disks, .services { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -71,13 +76,24 @@
       <section class="metrics" aria-label="Host status">
         <div class="metric"><span class="label">CPU</span><strong class="value" id="cpu">--</strong><div class="bar"><i id="cpu-bar"></i></div></div>
         <div class="metric"><span class="label">Memory</span><strong class="value" id="memory">--</strong><div class="bar"><i id="memory-bar"></i></div></div>
-        <div class="metric"><span class="label">Disk</span><strong class="value" id="disk">--</strong><div class="bar"><i id="disk-bar"></i></div></div>
         <div class="metric"><span class="label">Uptime</span><strong class="value" id="uptime">--</strong><div class="bar"><i style="width: 100%"></i></div></div>
       </section>
+
+      <h2>Storage</h2>
+      <section class="disks" id="disks"></section>
 
       <h2>Services</h2>
       <section class="services">
         <a class="service" id="home-assistant"><span>Home Assistant<br><small>Home automation</small></span><i class="status"></i></a>
+        <a class="service" id="jellyfin"><span>Jellyfin<br><small>Media server</small></span><i class="status"></i></a>
+        <a class="service" id="prowlarr"><span>Prowlarr<br><small>Indexer manager</small></span><i class="status"></i></a>
+        <a class="service" id="sonarr"><span>Sonarr<br><small>TV management</small></span><i class="status"></i></a>
+        <a class="service" id="radarr"><span>Radarr<br><small>Movie management</small></span><i class="status"></i></a>
+        <a class="service" id="lidarr"><span>Lidarr<br><small>Music management</small></span><i class="status"></i></a>
+        <a class="service" id="readarr"><span>Readarr<br><small>Book management</small></span><i class="status"></i></a>
+        <a class="service" id="whisparr"><span>Whisparr<br><small>Media management</small></span><i class="status"></i></a>
+        <a class="service" id="bazarr"><span>Bazarr<br><small>Subtitle management</small></span><i class="status"></i></a>
+        <a class="service" id="qbittorrent"><span>qBittorrent<br><small>Download client</small></span><i class="status"></i></a>
         <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
         <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
         <a class="service" id="herdr"><span>Herdr<br><small>Agent terminal</small></span><i class="status"></i></a>
@@ -94,6 +110,15 @@
         return url.href;
       };
       byId("home-assistant").href = serviceUrl(8123);
+      byId("jellyfin").href = serviceUrl(8096);
+      byId("prowlarr").href = serviceUrl(9696);
+      byId("sonarr").href = serviceUrl(8989);
+      byId("radarr").href = serviceUrl(7878);
+      byId("lidarr").href = serviceUrl(8686);
+      byId("readarr").href = serviceUrl(8787);
+      byId("whisparr").href = serviceUrl(6969);
+      byId("bazarr").href = serviceUrl(6767);
+      byId("qbittorrent").href = serviceUrl(8082);
       byId("syncthing").href = serviceUrl(8383);
       byId("desktop").href = serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote");
       byId("herdr").href = serviceUrl(7681);
@@ -122,11 +147,33 @@
           const cpu = data.cpu ?? 0;
           byId("cpu").textContent = data.cpu === null ? "sampling" : `${cpu}%`;
           byId("memory").textContent = storage(data.memory.used, data.memory.total);
-          byId("disk").textContent = storage(data.disk.used, data.disk.total);
           byId("uptime").textContent = duration(data.uptime);
           byId("cpu-bar").style.width = `${cpu}%`;
           byId("memory-bar").style.width = `${data.memory.percent}%`;
-          byId("disk-bar").style.width = `${data.disk.percent}%`;
+
+          const diskList = byId("disks");
+          diskList.replaceChildren(...data.disks.map((disk) => {
+            const card = document.createElement("div");
+            card.className = `disk${disk.mounted ? "" : " unmounted"}`;
+            const head = document.createElement("div");
+            head.className = "disk-head";
+            const name = document.createElement("span");
+            name.textContent = disk.name;
+            const path = document.createElement("span");
+            path.className = "disk-path";
+            path.textContent = disk.path;
+            const value = document.createElement("strong");
+            value.className = "value";
+            value.textContent = disk.mounted ? storage(disk.used, disk.total) : "not mounted";
+            const bar = document.createElement("div");
+            bar.className = "bar";
+            const fill = document.createElement("i");
+            fill.style.width = `${disk.percent}%`;
+            head.append(name, path);
+            bar.append(fill);
+            card.append(head, value, bar);
+            return card;
+          }));
           for (const service of data.services) {
             const status = byId(service.id).querySelector(".status");
             status.className = `status ${service.online ? "online" : "offline"}`;

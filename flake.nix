@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     herdr.url = "github:herdrdev/herdr/v0.8.0";
+    pi.url = "github:lukasl-dev/pi.nix";
   };
 
   outputs =
@@ -11,20 +12,21 @@
       self,
       herdr,
       nixpkgs,
+      pi,
       ...
     }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       herdrPackage = herdr.packages.${system}.default;
-      piPackage = pkgs.callPackage ./pi.nix { };
+      piPackage = pi.packages.${system}.coding-agent;
       piSubagentsPackage = pkgs.callPackage ./pi-subagents.nix { };
       piWebAccessPackage = pkgs.callPackage ./pi-web-access.nix { };
     in
     {
       nixosConfigurations.balaur = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit herdrPackage; };
+        specialArgs = { inherit herdrPackage piPackage; };
         modules = [
           ./hardware-configuration.nix
           ./configuration.nix

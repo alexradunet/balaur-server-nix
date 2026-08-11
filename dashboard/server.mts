@@ -9,6 +9,15 @@ const index = await readFile(new URL("index.html", import.meta.url));
 
 const services = [
   { id: "home-assistant", name: "Home Assistant", host: "127.0.0.1", port: 8123 },
+  { id: "jellyfin", name: "Jellyfin", host: "127.0.0.1", port: 8096 },
+  { id: "prowlarr", name: "Prowlarr", host: "127.0.0.1", port: 9696 },
+  { id: "sonarr", name: "Sonarr", host: "127.0.0.1", port: 8989 },
+  { id: "radarr", name: "Radarr", host: "127.0.0.1", port: 7878 },
+  { id: "lidarr", name: "Lidarr", host: "127.0.0.1", port: 8686 },
+  { id: "readarr", name: "Readarr", host: "127.0.0.1", port: 8787 },
+  { id: "whisparr", name: "Whisparr", host: "127.0.0.1", port: 6969 },
+  { id: "bazarr", name: "Bazarr", host: "127.0.0.1", port: 6767 },
+  { id: "qbittorrent", name: "qBittorrent", host: "127.0.0.1", port: 8082 },
   { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
   { id: "desktop", name: "Web Desktop", host: "127.0.0.1", port: 6080 },
   { id: "herdr", name: "Herdr", host: "127.0.0.1", port: 7681 },
@@ -49,12 +58,42 @@ async function memoryUsage(): Promise<{ used: number; total: number; percent: nu
   return { used, total, percent: total ? Math.round((used / total) * 1000) / 10 : 0 };
 }
 
-async function diskUsage(): Promise<{ used: number; total: number; percent: number }> {
-  const disk = await statfs("/");
-  const total = disk.blocks * disk.bsize;
-  const available = disk.bavail * disk.bsize;
-  const used = total - available;
-  return { used, total, percent: total ? Math.round((used / total) * 1000) / 10 : 0 };
+const disks = [
+  { id: "os", name: "OS", path: "/" },
+  { id: "app-data", name: "Application data", path: "/srv/app-data" },
+  { id: "personal", name: "Personal", path: "/srv/personal" },
+  { id: "media-ssd0", name: "Media SSD 0", path: "/srv/media/ssd0" },
+  { id: "media-ssd1", name: "Media SSD 1", path: "/srv/media/ssd1" },
+];
+
+type DiskUsage = (typeof disks)[number] & {
+  mounted: boolean;
+  used: number;
+  total: number;
+  percent: number;
+};
+
+async function diskUsage(): Promise<DiskUsage[]> {
+  const mountInfo = await readFile("/proc/self/mountinfo", "utf8");
+  const mountedPaths = new Set(mountInfo.trim().split("\n").map((line) => line.split(" ")[4]));
+
+  return Promise.all(disks.map(async (disk) => {
+    if (!mountedPaths.has(disk.path)) {
+      return { ...disk, mounted: false, used: 0, total: 0, percent: 0 };
+    }
+
+    const filesystem = await statfs(disk.path);
+    const total = filesystem.blocks * filesystem.bsize;
+    const available = filesystem.bavail * filesystem.bsize;
+    const used = total - available;
+    return {
+      ...disk,
+      mounted: true,
+      used,
+      total,
+      percent: total ? Math.round((used / total) * 1000) / 10 : 0,
+    };
+  }));
 }
 
 function serviceOnline(service: (typeof services)[number]): Promise<boolean> {
@@ -72,7 +111,7 @@ function serviceOnline(service: (typeof services)[number]): Promise<boolean> {
 }
 
 async function status() {
-  const [cpu, memory, disk, serviceStates, uptime] = await Promise.all([
+  const [cpu, memory, disks, serviceStates, uptime] = await Promise.all([
     cpuUsage(),
     memoryUsage(),
     diskUsage(),
@@ -86,7 +125,7 @@ async function status() {
     uptime: Math.floor(Number.parseFloat(uptime) || 0),
     cpu,
     memory,
-    disk,
+    disks,
     services: services.map(({ id, name }, index) => ({ id, name, online: serviceStates[index] })),
   };
 }
