@@ -183,8 +183,8 @@ keyboard-interactive authentication, and X11 forwarding are disabled.
 
 Web services are available directly on the LAN. Open the dashboard at
 `http://balaur.home.arpa`; Caddy forwards the standard HTTP port to the private
-dashboard process. Its links use the same server address. The router must not
-forward any of these ports from the internet.
+dashboard process. Its links continue to use the existing service ports. The
+router must not forward any of these ports from the internet.
 
 ## Local Services
 
