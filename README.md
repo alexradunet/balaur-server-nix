@@ -148,19 +148,19 @@ must not forward any of these ports from the internet.
 
 ## Local Services
 
-The dashboard monitors Home Assistant, Jellyfin, the Servarr suite, qBittorrent,
-Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
+The dashboard monitors Home Assistant, Jellyfin, Seerr, the Servarr suite,
+qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs
+include:
 
 - Dashboard: `http://192.168.50.13:8080`
 - Home Assistant: `http://192.168.50.13:8123`
 - Jellyfin: `http://192.168.50.13:8096`
+- Seerr: `http://192.168.50.13:5055`
 - Prowlarr: `http://192.168.50.13:9696`
 - Sonarr: `http://192.168.50.13:8989`
 - Radarr: `http://192.168.50.13:7878`
 - Lidarr: `http://192.168.50.13:8686`
-- Readarr: `http://192.168.50.13:8787`
 - Whisparr: `http://192.168.50.13:6969`
-- Bazarr: `http://192.168.50.13:6767`
 - qBittorrent: `http://192.168.50.13:8082`
 - Syncthing: `http://192.168.50.13:8383`
 - Web desktop: `http://192.168.50.13:6080`
@@ -173,34 +173,43 @@ Jellyfin first-run setup is available at its LAN URL. Add libraries from
 `/srv/app-data/jellyfin`. The replaceable media itself is not included in the
 USB Borg backup.
 
+Complete Seerr's first-run setup at `http://192.168.50.13:5055`. Select
+Jellyfin and use `http://127.0.0.1:8096` for the internal server URL, then add
+Sonarr at `http://127.0.0.1:8989` and Radarr at `http://127.0.0.1:7878`. API
+keys are available with `sudo nixarr list-api-keys`. Seerr's database and
+credentials persist on mirrored storage in `/srv/app-data/seerr`; onboarding
+and user authorization remain application-managed state.
+
 Nixarr declaratively manages Jellyfin, Prowlarr, Sonarr, Radarr, Lidarr,
-Whisparr, Bazarr, qBittorrent, their service accounts, shared permissions, and
-state beneath `/srv/app-data`. Readarr remains on the native NixOS module because
-current Nixarr no longer provides it. The migration preserves the installed
-host's existing service UIDs/GIDs and application databases.
+Whisparr, qBittorrent, their service accounts, shared permissions, and state
+beneath `/srv/app-data`. The migration preserves the installed host's existing
+service UIDs/GIDs and application databases. Readarr and Bazarr are no longer
+enabled; their old `/srv/app-data` directories are retained for deliberate
+manual cleanup rather than being deleted during activation.
 
 qBittorrent is fail-closed inside Nixarr's WireGuard namespace using
 `/srv/secrets/protonvpn.conf`. A host proxy preserves its existing
 `127.0.0.1:8082` and LAN endpoint, while peer port 6881 is exposed only through
 the VPN. Authentication remains required through the proxy. The stable `admin`
 password is generated outside the Nix store and can be read with
-`sudo cat /srv/secrets/qbittorrent-webui-password`; use it in each Arr download
-client as well. Its declarative default and incomplete paths are
+`sudo cat /srv/secrets/qbittorrent-webui-password`. A boot-time synchronization
+service creates or updates every Arr qBittorrent client with this credential,
+its loopback endpoint, and its application category, then clears any stale
+proxy-IP authentication ban. It also converges qBittorrent's category save
+paths. The declarative default and incomplete paths are
 `/srv/media/ssd0/downloads/complete` and
-`/srv/media/ssd0/downloads/incomplete`; keep these category save paths:
+`/srv/media/ssd0/downloads/incomplete`; category paths are:
 
 - `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
 - `whisparr`: `/srv/media/ssd0/downloads/complete/whisparr`
 - `sonarr`: `/srv/media/ssd1/downloads/complete/sonarr`
 - `lidarr`: `/srv/media/ssd1/downloads/complete/lidarr`
-- `readarr`: `/srv/media/ssd1/downloads/complete/readarr`
 
 Use `/srv/media/ssd0/library/movies`, `/srv/media/ssd0/library/whisparr`,
-`/srv/media/ssd1/library/tv`, `/srv/media/ssd1/library/music`, and
-`/srv/media/ssd1/library/books` as the corresponding root folders. Keeping each category and library on the same SSD
-allows hardlinks and atomic imports. Add qBittorrent to each Arr app at
-`127.0.0.1:8082` with its matching category. Add each Arr app to Prowlarr using
-its `127.0.0.1` URL and API key, preferably with Full Sync.
+`/srv/media/ssd1/library/tv`, and `/srv/media/ssd1/library/music` as the
+corresponding root folders. Keeping each category and library on the same SSD
+allows hardlinks and atomic imports. Nixarr also keeps Sonarr, Radarr, Lidarr,
+and Whisparr linked to Prowlarr with Full Sync.
 
 Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to
@@ -213,14 +222,14 @@ Its runtime configuration, automations, database, and credentials are stored in
 Borg job does not currently include this directory, so use Home Assistant's
 built-in backup feature for its state.
 
-FastFlowLM runs the instruction-tuned `gemma4-it:e4b` model on the Ryzen AI XDNA2 NPU with a 64K context. Its OpenAI-compatible API remains on port 8081, with endpoints below `/v1`; it does not provide the old llama.cpp web UI. The first service start downloads FastFlowLM's NPU-optimized model files from Hugging Face into `/srv/app-data/fastflowlm/models`, so the API remains unavailable until that download and model load finish. Follow progress with `journalctl -fu fastflowlm`.
+FastFlowLM runs the reasoning and tool-capable `qwen3.6-moe:35b-a3b` model on the Ryzen AI XDNA2 NPU with its catalog-default 32K context. The Q4_K_S NPU build has a catalog footprint of 24.3 GB, which fits in this host's 54.5 GiB of RAM. Its OpenAI-compatible API remains on port 8081, with endpoints below `/v1`; it does not provide the old llama.cpp web UI. The first service start downloads FastFlowLM's NPU-optimized model files from Hugging Face into `/srv/app-data/fastflowlm/models`, so the API remains unavailable until that large download and model load finish. Follow progress with `journalctl -fu fastflowlm`.
 
 The portable FastFlowLM runtime bundles its XRT userspace libraries. NixOS uses Linux 7.1 so `amdxdna` loads the required protocol-7 NPU firmware, then grants the service access to `/dev/accel/accel0` with unlimited memlock. Reboot after the first deployment to enter the new kernel. Validate the stack with `sudo -u fastflowlm flm validate`; it should report firmware 1.1.2.64 and `ready: true`. Inspect installed models with `sudo -u fastflowlm env FLM_MODEL_PATH=/srv/app-data/fastflowlm/models flm list --filter installed`, and test the API with:
 
 ```sh
 curl http://127.0.0.1:8081/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gemma4-it:e4b","messages":[{"role":"user","content":"Reply with OK"}]}'
+  -d '{"model":"qwen3.6-moe:35b-a3b","messages":[{"role":"user","content":"Reply with OK"}]}'
 ```
 
 FastFlowLM has no API authentication. Keep port 8081 LAN-only and do not forward it from the router. The obsolete llama.cpp GGUF cache under `/var/cache/llama-cpp` is not used and may be deleted manually after confirming FastFlowLM works.

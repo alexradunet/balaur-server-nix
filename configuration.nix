@@ -178,7 +178,6 @@ in
       radarr = null;
       lidarr = null;
       whisparr = null;
-      bazarr = null;
       qbittorrent = null;
     };
     gids = {
@@ -200,12 +199,15 @@ in
     };
 
     jellyfin.enable = true;
-    prowlarr.enable = true;
+    prowlarr = {
+      enable = true;
+      # Keep every supported Arr application linked with Full Sync.
+      settings-sync.enable-nixarr-apps = true;
+    };
     sonarr.enable = true;
     radarr.enable = true;
     lidarr.enable = true;
     whisparr.enable = true;
-    bazarr.enable = true;
 
     qbittorrent = {
       enable = true;
@@ -216,8 +218,8 @@ in
       webuiPort = 8082;
       peerPort = 6881;
 
-      # Readarr and Whisparr do not yet accept qBittorrent 5.2's HTTP 204
-      # authentication response. Keep 5.1 until those clients are updated.
+      # Whisparr does not yet accept qBittorrent 5.2's HTTP 204 authentication
+      # response. Keep 5.1 until that client is updated.
       package = pkgs.qbittorrent-nox.overrideAttrs (_old: {
         version = "5.1.4";
         src = pkgs.fetchFromGitHub {
@@ -248,17 +250,39 @@ in
     };
   };
 
-  # Nixarr no longer provides Readarr, so retain the NixOS service until a
-  # deliberate migration to its successor is made.
-  services.readarr = {
-    enable = true;
-    openFirewall = false;
-    dataDir = "/srv/app-data/readarr";
-  };
-
   # Nixarr's Jellyfin layout puts data below stateDir/data. Override only this
   # path to preserve the existing database during the in-place migration.
   services.jellyfin.dataDir = pkgs.lib.mkForce "/srv/app-data/jellyfin";
+
+  # Nixarr's settings synchronization uses each application's loopback API.
+  # Browser authentication remains required for clients arriving from the LAN.
+  services.prowlarr.settings.auth.required = "DisabledForLocalAddresses";
+  services.sonarr.settings.auth.required = "DisabledForLocalAddresses";
+  services.radarr.settings.auth.required = "DisabledForLocalAddresses";
+  services.lidarr.settings.auth.required = "DisabledForLocalAddresses";
+  services.whisparr.settings.auth.required = "DisabledForLocalAddresses";
+
+  services.seerr = {
+    enable = true;
+    openFirewall = false;
+    port = 5055;
+    configDir = "/srv/app-data/seerr";
+  };
+
+  # The upstream module uses DynamicUser for /var/lib/seerr. A static account
+  # lets Seerr keep its database on the mirrored application filesystem.
+  users.groups.seerr = { };
+  users.users.seerr = {
+    isSystemUser = true;
+    group = "seerr";
+    home = "/srv/app-data/seerr";
+  };
+  systemd.services.seerr.serviceConfig = {
+    DynamicUser = pkgs.lib.mkForce false;
+    User = "seerr";
+    Group = "seerr";
+    ReadWritePaths = [ "/srv/app-data/seerr" ];
+  };
 
   services.home-assistant = {
     enable = true;
@@ -286,9 +310,6 @@ in
       };
     };
   };
-
-  # Readarr is the only media service here not managed by Nixarr.
-  users.users.readarr.extraGroups = [ "media" ];
 
   # Mirrored application state for services such as Jellyfin and Immich.
   fileSystems."/srv/app-data" = {
@@ -353,8 +374,9 @@ in
   };
 
   systemd.tmpfiles.rules = [
+    "d /srv/secrets 0700 root root -"
     "d /srv/app-data 2775 root media -"
-    "d /srv/app-data/readarr 0750 readarr readarr -"
+    "d /srv/app-data/seerr 0750 seerr seerr -"
     # Migrate files previously mapped through Prowlarr's DynamicUser namespace.
     "Z /srv/app-data/prowlarr - prowlarr prowlarr -"
     "d /srv/app-data/fastflowlm 0750 fastflowlm fastflowlm -"
@@ -372,11 +394,9 @@ in
     "d /srv/media/ssd1/downloads/complete 2775 qbittorrent media -"
     "d /srv/media/ssd1/downloads/complete/sonarr 2775 qbittorrent media -"
     "d /srv/media/ssd1/downloads/complete/lidarr 2775 qbittorrent media -"
-    "d /srv/media/ssd1/downloads/complete/readarr 2775 qbittorrent media -"
     "d /srv/media/ssd1/library 2775 alex media -"
     "d /srv/media/ssd1/library/tv 2775 alex media -"
     "d /srv/media/ssd1/library/music 2775 alex media -"
-    "d /srv/media/ssd1/library/books 2775 alex media -"
     "d /srv/personal 2775 alex media -"
     "d /srv/media 2775 root media -"
     "d /srv/media/ssd0 2775 root media -"
@@ -470,7 +490,7 @@ in
     };
   };
 
-  # FastFlowLM runs Gemma 4 entirely on the Ryzen AI XDNA2 NPU. Linux 7.0+
+  # FastFlowLM runs Qwen 3.6 MoE entirely on the Ryzen AI XDNA2 NPU. Linux 7.0+
   # selects the protocol-7 NPU firmware required by FastFlowLM, while the
   # portable release bundles the matching XRT userspace stack.
   boot.kernelPackages = pkgs.linuxPackages_latest;
@@ -503,7 +523,7 @@ in
       Group = "fastflowlm";
       StateDirectory = "fastflowlm";
       WorkingDirectory = "/var/lib/fastflowlm";
-      ExecStart = "${fastFlowLMPackage}/bin/flm serve gemma4-it:e4b --host 0.0.0.0 --port 8081 --ctx-len 65536 --cors 0";
+      ExecStart = "${fastFlowLMPackage}/bin/flm serve qwen3.6-moe:35b-a3b --host 0.0.0.0 --port 8081 --ctx-len 32768 --cors 0";
       Restart = "on-failure";
       RestartSec = 10;
       LimitMEMLOCK = "infinity";
@@ -529,15 +549,48 @@ in
   # real /var/lib/prowlarr directory instead of requiring a private-state symlink.
   systemd.services.prowlarr.serviceConfig.DynamicUser = pkgs.lib.mkForce false;
 
-  # Nixarr sets the shared-media umask for its services. Readarr and Whisparr
-  # still need explicit overrides in their current modules.
-  systemd.services.readarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
+  # Nixarr sets the shared-media umask for most services. Whisparr still needs
+  # an explicit override in its current module.
   systemd.services.whisparr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
+
+  # The storage filesystems are intentionally nofail so the host can still boot
+  # degraded. Stop only the affected media services rather than letting them use
+  # empty mount points on the OS filesystem.
+  systemd.services.jellyfin.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd0"
+    "/srv/media/ssd1"
+  ];
+  systemd.services.prowlarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [ "/srv/app-data" ];
+  systemd.services.sonarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd1"
+  ];
+  systemd.services.radarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd0"
+  ];
+  systemd.services.lidarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd1"
+  ];
+  systemd.services.whisparr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd0"
+  ];
+  systemd.services.qbittorrent.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd0"
+    "/srv/media/ssd1"
+  ];
 
   # NixOS regenerates qBittorrent.conf on every service start. Inject a stable,
   # host-local Web UI password afterward so reboots do not invalidate Arr clients.
-  systemd.services.qbittorrent.serviceConfig.ExecStartPre = pkgs.lib.mkAfter [
-    "+${pkgs.writeShellScript "qbittorrent-webui-password" ''
+  systemd.services.qbittorrent.serviceConfig = {
+    Restart = "on-failure";
+    RestartSec = 10;
+    ExecStartPre = pkgs.lib.mkAfter [
+      "+${pkgs.writeShellScript "qbittorrent-webui-password" ''
       set -euo pipefail
       secret=/srv/secrets/qbittorrent-webui-password
       config=/srv/app-data/qbittorrent/qBittorrent/config/qBittorrent.conf
@@ -546,6 +599,8 @@ in
         umask 0077
         ${pkgs.openssl}/bin/openssl rand -base64 24 | ${pkgs.coreutils}/bin/tr -d '\n' > "$secret"
       fi
+      ${pkgs.coreutils}/bin/chown root:root "$secret"
+      ${pkgs.coreutils}/bin/chmod 0600 "$secret"
 
       password_hash="$(${pkgs.nodejs}/bin/node - "$secret" <<'EOF'
       const crypto = require("crypto");
@@ -568,8 +623,70 @@ in
       ${pkgs.coreutils}/bin/chown qbittorrent:media "$config.tmp"
       ${pkgs.coreutils}/bin/chmod 0600 "$config.tmp"
       ${pkgs.coreutils}/bin/mv "$config.tmp" "$config"
-    ''}"
-  ];
+      ''}"
+    ];
+  };
+
+  # Converge every Arr download client on the host-local password. The APIs
+  # mask stored passwords, so the service safely overwrites the field at boot
+  # and restarts qBittorrent once to clear any shared proxy-IP authentication ban.
+  systemd.services.arr-qbittorrent-sync = {
+    description = "Synchronize qBittorrent credentials in Arr applications";
+    wants = [
+      "qbittorrent.service"
+      "sonarr.service"
+      "radarr.service"
+      "lidarr.service"
+      "whisparr.service"
+    ];
+    after = [
+      "qbittorrent.service"
+      "sonarr.service"
+      "radarr.service"
+      "lidarr.service"
+      "whisparr.service"
+    ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      RuntimeDirectory = "arr-qbittorrent-sync";
+      RuntimeDirectoryMode = "0700";
+      TimeoutStartSec = 240;
+      Restart = "on-failure";
+      RestartSec = 30;
+      ExecStart = pkgs.writeShellScript "arr-qbittorrent-sync" ''
+        status=0
+        ${pkgs.coreutils}/bin/rm -f "$RUNTIME_DIRECTORY/restart-required"
+        ${pkgs.python3}/bin/python ${./arr-qbittorrent-sync.py} \
+          --password-file /srv/secrets/qbittorrent-webui-password \
+          --restart-marker "$RUNTIME_DIRECTORY/restart-required" || status=$?
+
+        if [[ -e "$RUNTIME_DIRECTORY/restart-required" ]]; then
+          ${pkgs.systemd}/bin/systemctl restart qbittorrent.service || status=$?
+        fi
+
+        ${pkgs.python3}/bin/python ${./arr-qbittorrent-sync.py} \
+          --password-file /srv/secrets/qbittorrent-webui-password \
+          --sync-categories \
+          --timeout 60 || status=$?
+        exit "$status"
+      '';
+
+      CapabilityBoundingSet = "";
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_UNIX"
+      ];
+      RestrictNamespaces = true;
+    };
+  };
 
   # Nixarr normally maps qBittorrent's internal API only when its optional qui
   # frontend is enabled. The native Web UI needs an explicit namespace mapping.
@@ -777,8 +894,8 @@ in
   # reach this host. The router must not forward these ports from the internet.
   networking.firewall.allowedTCPPorts = [
     22
+    5055
     6080
-    6767
     6969
     7681
     7878
@@ -789,7 +906,6 @@ in
     8123
     8383
     8686
-    8787
     8989
     9696
     22000

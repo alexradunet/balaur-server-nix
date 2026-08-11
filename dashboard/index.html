@@ -98,13 +98,12 @@
         <h3 id="media-services">Media</h3>
         <div class="services">
           <a class="service" id="jellyfin"><span class="service-info"><span class="service-icon" aria-hidden="true">🎬</span><span>Jellyfin<br><small>Media server</small></span></span><i class="status"></i></a>
+          <a class="service" id="seerr"><span class="service-info"><span class="service-icon" aria-hidden="true">🔎</span><span>Seerr<br><small>Media requests</small></span></span><i class="status"></i></a>
           <a class="service" id="prowlarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🧭</span><span>Prowlarr<br><small>Indexer manager</small></span></span><i class="status"></i></a>
           <a class="service" id="sonarr"><span class="service-info"><span class="service-icon" aria-hidden="true">📺</span><span>Sonarr<br><small>TV management</small></span></span><i class="status"></i></a>
           <a class="service" id="radarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🎞️</span><span>Radarr<br><small>Movie management</small></span></span><i class="status"></i></a>
           <a class="service" id="lidarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🎵</span><span>Lidarr<br><small>Music management</small></span></span><i class="status"></i></a>
-          <a class="service" id="readarr"><span class="service-info"><span class="service-icon" aria-hidden="true">📚</span><span>Readarr<br><small>Book management</small></span></span><i class="status"></i></a>
           <a class="service" id="whisparr"><span class="service-info"><span class="service-icon" aria-hidden="true">🔞</span><span>Whisparr<br><small>Media management</small></span></span><i class="status"></i></a>
-          <a class="service" id="bazarr"><span class="service-info"><span class="service-icon" aria-hidden="true">💬</span><span>Bazarr<br><small>Subtitle management</small></span></span><i class="status"></i></a>
         </div>
       </section>
 
@@ -121,7 +120,7 @@
         <div class="services">
           <a class="service" id="desktop"><span class="service-info"><span class="service-icon" aria-hidden="true">🖥️</span><span>Web Desktop<br><small>XFCE via noVNC</small></span></span><i class="status"></i></a>
           <a class="service" id="herdr"><span class="service-info"><span class="service-icon" aria-hidden="true">🤖</span><span>Herdr<br><small>Agent terminal</small></span></span><i class="status"></i></a>
-          <a class="service" id="fastflowlm"><span class="service-info"><span class="service-icon" aria-hidden="true">🧠</span><span>FastFlowLM<br><small>Gemma 4 on Ryzen AI NPU</small></span></span><i class="status"></i></a>
+          <a class="service" id="fastflowlm"><span class="service-info"><span class="service-icon" aria-hidden="true">🧠</span><span>FastFlowLM<br><small>Qwen 3.6 MoE on Ryzen AI NPU</small></span></span><i class="status"></i></a>
         </div>
       </section>
       <p id="error">Host status is temporarily unavailable.</p>
@@ -136,13 +135,12 @@
       };
       byId("home-assistant").href = serviceUrl(8123);
       byId("jellyfin").href = serviceUrl(8096);
+      byId("seerr").href = serviceUrl(5055);
       byId("prowlarr").href = serviceUrl(9696);
       byId("sonarr").href = serviceUrl(8989);
       byId("radarr").href = serviceUrl(7878);
       byId("lidarr").href = serviceUrl(8686);
-      byId("readarr").href = serviceUrl(8787);
       byId("whisparr").href = serviceUrl(6969);
-      byId("bazarr").href = serviceUrl(6767);
       byId("qbittorrent").href = serviceUrl(8082);
       byId("syncthing").href = serviceUrl(8383);
       byId("desktop").href = serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote");

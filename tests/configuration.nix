@@ -90,8 +90,8 @@ let
       assertion =
         config.networking.firewall.allowedTCPPorts == [
           22
+          5055
           6080
-          6767
           6969
           7681
           7878
@@ -102,7 +102,6 @@ let
           8123
           8383
           8686
-          8787
           8989
           9696
           22000
@@ -118,7 +117,7 @@ let
       assertion =
         config.systemd.services.fastflowlm.environment.FLM_MODEL_PATH == "/srv/app-data/fastflowlm/models"
         && config.systemd.services.fastflowlm.environment.FLM_DISABLE_UPDATE_CHECK == "1"
-        && lib.hasInfix "flm serve gemma4-it:e4b --host 0.0.0.0 --port 8081 --ctx-len 65536 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
+        && lib.hasInfix "flm serve qwen3.6-moe:35b-a3b --host 0.0.0.0 --port 8081 --ctx-len 32768 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
         && config.systemd.services.fastflowlm.serviceConfig.LimitMEMLOCK == "infinity"
         && config.systemd.services.fastflowlm.serviceConfig.DeviceAllow == [ "/dev/accel/accel0 rw" ]
         && !config.systemd.services.fastflowlm.serviceConfig.PrivateDevices
@@ -138,6 +137,16 @@ let
         && config.nixarr.stateDir == "/srv/app-data"
         && config.nixarr.vpn.enable
         && config.nixarr.vpn.wgConf == "/srv/secrets/protonvpn.conf"
+        && config.nixarr.prowlarr.settings-sync.enable-nixarr-apps
+        && lib.all (
+          service: config.services.${service}.settings.auth.required == "DisabledForLocalAddresses"
+        ) [
+          "prowlarr"
+          "sonarr"
+          "radarr"
+          "lidarr"
+          "whisparr"
+        ]
         && config.users.groups.media.gid == null
         && config.users.groups.prowlarr.gid == null
         && lib.all (user: config.users.users.${user}.uid == null) [
@@ -147,7 +156,6 @@ let
           "radarr"
           "lidarr"
           "whisparr"
-          "bazarr"
           "qbittorrent"
         ]
         && lib.all (service: config.nixarr.${service}.enable) [
@@ -157,7 +165,6 @@ let
           "radarr"
           "lidarr"
           "whisparr"
-          "bazarr"
           "qbittorrent"
         ]
         && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
@@ -170,9 +177,14 @@ let
         && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
         && config.nixarr.lidarr.stateDir == "/srv/app-data/lidarr"
         && config.nixarr.whisparr.stateDir == "/srv/app-data/whisparr"
-        && config.nixarr.bazarr.stateDir == "/srv/app-data/bazarr"
-        && config.services.readarr.enable
-        && config.services.readarr.dataDir == "/srv/app-data/readarr"
+        && config.services.seerr.enable
+        && !config.services.seerr.openFirewall
+        && config.services.seerr.port == 5055
+        && config.services.seerr.configDir == "/srv/app-data/seerr"
+        && config.users.users.seerr.group == "seerr"
+        && !config.systemd.services.seerr.serviceConfig.DynamicUser
+        && config.systemd.services.seerr.serviceConfig.User == "seerr"
+        && builtins.elem "/srv/app-data/seerr" config.systemd.services.seerr.unitConfig.RequiresMountsFor
         && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
         && config.services.qbittorrent.webuiPort == 8082
         && config.services.qbittorrent.torrentingPort == 6881
@@ -185,6 +197,8 @@ let
         && !config.services.qbittorrent.serverConfig.Preferences."WebUI\\AuthSubnetWhitelistEnabled"
         && config.services.qbittorrent.serverConfig.Preferences."WebUI\\CSRFProtection"
         && config.services.qbittorrent.serverConfig.Preferences."WebUI\\LocalHostAuth"
+        && config.systemd.services.qbittorrent.serviceConfig.Restart == "on-failure"
+        && config.systemd.services.qbittorrent.serviceConfig.RestartSec == 10
         && builtins.any (
           command: lib.hasInfix "qbittorrent-webui-password" command
         ) config.systemd.services.qbittorrent.serviceConfig.ExecStartPre
@@ -201,16 +215,30 @@ let
         && lib.hasInfix "TCP:192.168.15.1:8082" config.systemd.services.qbt-webui-proxy.serviceConfig.ExecStart
         && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
         && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
+        && builtins.elem "qbittorrent.service" config.systemd.services.arr-qbittorrent-sync.after
+        && builtins.elem "whisparr.service" config.systemd.services.arr-qbittorrent-sync.after
+        && lib.hasInfix "arr-qbittorrent-sync" config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart
+        && config.systemd.services.arr-qbittorrent-sync.serviceConfig.TimeoutStartSec == 240
+        && lib.all (
+          entry: builtins.elem entry.mount config.systemd.services.${entry.service}.unitConfig.RequiresMountsFor
+        ) [
+          { service = "jellyfin"; mount = "/srv/media/ssd0"; }
+          { service = "jellyfin"; mount = "/srv/media/ssd1"; }
+          { service = "sonarr"; mount = "/srv/media/ssd1"; }
+          { service = "radarr"; mount = "/srv/media/ssd0"; }
+          { service = "lidarr"; mount = "/srv/media/ssd1"; }
+          { service = "whisparr"; mount = "/srv/media/ssd0"; }
+          { service = "qbittorrent"; mount = "/srv/media/ssd0"; }
+          { service = "qbittorrent"; mount = "/srv/media/ssd1"; }
+        ]
         && lib.all (user: config.users.users.${user}.group == "media") [
           "jellyfin"
           "sonarr"
           "radarr"
           "lidarr"
           "whisparr"
-          "bazarr"
           "qbittorrent"
         ]
-        && builtins.elem "media" config.users.users.readarr.extraGroups
         && config.services.home-assistant.enable
         && config.services.home-assistant.config.http.server_host == "0.0.0.0"
         && config.services.home-assistant.config.http.server_port == 8123
@@ -239,6 +267,7 @@ let
     }
     {
       assertion = lib.all hardened [
+        "arr-qbittorrent-sync"
         "balaur-dashboard"
         "web-desktop-novnc"
       ];
@@ -255,6 +284,9 @@ if failures != [ ] then
 else
   pkgs.runCommand "balaur-configuration-tests" { } ''
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
+    grep --fixed-strings -- '--sync-categories' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
+    grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../arr-qbittorrent-sync.py}
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     printf '%s\n' ${lib.escapeShellArg config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart} \

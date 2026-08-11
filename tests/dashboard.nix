@@ -30,24 +30,24 @@ pkgs.runCommand "balaur-dashboard-tests"
     grep --fixed-strings '<title>balaur</title>' index.html
     grep --fixed-strings 'serviceUrl(8123)' index.html
     grep --fixed-strings 'serviceUrl(8096)' index.html
+    grep --fixed-strings 'serviceUrl(5055)' index.html
     grep --fixed-strings 'serviceUrl(9696)' index.html
     grep --fixed-strings 'serviceUrl(8989)' index.html
     grep --fixed-strings 'serviceUrl(7878)' index.html
     grep --fixed-strings 'serviceUrl(8686)' index.html
-    grep --fixed-strings 'serviceUrl(8787)' index.html
     grep --fixed-strings 'serviceUrl(6969)' index.html
-    grep --fixed-strings 'serviceUrl(6767)' index.html
     grep --fixed-strings 'serviceUrl(8082)' index.html
     grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
     grep --fixed-strings 'serviceUrl(7681)' index.html
     grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
+    grep --fixed-strings 'Seerr' index.html
     grep --fixed-strings 'FastFlowLM' index.html
     grep --fixed-strings '<h3 id="home-services">Home</h3>' index.html
     grep --fixed-strings '<h3 id="media-services">Media</h3>' index.html
     grep --fixed-strings '<h3 id="file-services">Downloads &amp; Files</h3>' index.html
     grep --fixed-strings '<h3 id="tool-services">Tools &amp; Compute</h3>' index.html
-    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 14
+    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 13
     grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
     grep --fixed-strings 'data.disks.map' index.html
 
@@ -63,8 +63,8 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.disks[0].mounted == true)
         and (.disks[0].total > 0)
         and ([.disks[].mounted] | all(type == "boolean"))
-        and (.services | length == 14)
-        and ([.services[].id] == ["home-assistant", "jellyfin", "prowlarr", "sonarr", "radarr", "lidarr", "readarr", "whisparr", "bazarr", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
+        and (.services | length == 13)
+        and ([.services[].id] == ["home-assistant", "jellyfin", "seerr", "prowlarr", "sonarr", "radarr", "lidarr", "whisparr", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 
