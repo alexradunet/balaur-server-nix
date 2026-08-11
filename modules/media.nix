@@ -157,6 +157,10 @@
     "/srv/media/ssd1"
   ];
 
+  # Keep completed files and directories writable by the Arr services, which
+  # need to import and clean up qBittorrent's category-specific downloads.
+  systemd.services.qbittorrent.serviceConfig.UMask = pkgs.lib.mkForce "0002";
+
   # NixOS regenerates qBittorrent.conf on every service start. Inject a stable,
   # host-local Web UI password afterward so reboots do not invalidate Arr clients.
   systemd.services.qbittorrent.serviceConfig = {
@@ -247,7 +251,11 @@
         exit "$status"
       '';
 
-      CapabilityBoundingSet = "";
+      # The Arr config directories are mode 0700 and owned by their
+      # respective service users. This helper only needs to read their API
+      # keys; retain the read/search DAC capability without granting write
+      # access to otherwise private application state.
+      CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
       NoNewPrivileges = true;
       PrivateDevices = true;
       PrivateTmp = true;

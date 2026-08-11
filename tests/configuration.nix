@@ -8,7 +8,13 @@ let
     let
       serviceConfig = config.systemd.services.${service}.serviceConfig;
     in
-    serviceConfig.CapabilityBoundingSet == ""
+    serviceConfig.CapabilityBoundingSet
+      == (
+        if service == "arr-qbittorrent-sync" then
+          [ "CAP_DAC_READ_SEARCH" ]
+        else
+          ""
+      )
     && serviceConfig.NoNewPrivileges
     && serviceConfig.PrivateDevices
     && serviceConfig.PrivateTmp
@@ -199,6 +205,9 @@ let
         && config.services.qbittorrent.serverConfig.Preferences."WebUI\\LocalHostAuth"
         && config.systemd.services.qbittorrent.serviceConfig.Restart == "on-failure"
         && config.systemd.services.qbittorrent.serviceConfig.RestartSec == 10
+        && config.systemd.services.qbittorrent.serviceConfig.UMask == "0002"
+        && builtins.elem "CAP_DAC_READ_SEARCH"
+          config.systemd.services.arr-qbittorrent-sync.serviceConfig.CapabilityBoundingSet
         && builtins.any (
           command: lib.hasInfix "qbittorrent-webui-password" command
         ) config.systemd.services.qbittorrent.serviceConfig.ExecStartPre
