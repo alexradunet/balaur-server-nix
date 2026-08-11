@@ -3,6 +3,7 @@
 {
   systemd.services.balaur-backup = {
     description = "Encrypted Borg backup to USB";
+    after = [ "local-fs.target" "systemd-tmpfiles-setup.service" ];
     unitConfig.ConditionPathExists = "/dev/disk/by-label/BALAUR_BACKUP";
 
     serviceConfig = {
@@ -48,9 +49,14 @@
           --compression zstd,3 \
           --exclude-caches \
           --exclude /home/alex/.cache \
+          --exclude /srv/app-data/fastflowlm/models \
           --stats \
           "$repository::{hostname}-{now:%Y-%m-%dT%H:%M:%S}" \
-          /home/alex || backup_status=$?
+          /home/alex \
+          /srv/app-data \
+          /srv/personal \
+          /var/lib/hass \
+          /srv/secrets || backup_status=$?
 
         # Borg uses status 1 for warnings such as a file changing during backup.
         if (( backup_status > 1 )); then

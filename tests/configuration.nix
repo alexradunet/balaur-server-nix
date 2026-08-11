@@ -291,6 +291,8 @@ if failures != [ ] then
 else
   pkgs.runCommand "balaur-configuration-tests" { } ''
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    grep --fixed-strings -- '--exclude /srv/app-data/fastflowlm/models' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    grep --fixed-strings -- '/var/lib/hass' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '--sync-categories' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../arr-qbittorrent-sync.py}

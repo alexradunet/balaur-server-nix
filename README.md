@@ -104,9 +104,16 @@ of the personal photo library.
 
 ## USB Backup
 
-The server creates an encrypted Borg snapshot of `/home/alex` once per day. The
-USB filesystem is mounted only for the backup and is unmounted afterward, including
-when the backup fails. Retention is 7 daily, 4 weekly, and 6 monthly snapshots.
+The server creates an encrypted Borg snapshot of `/home/alex`, application
+state, personal data, Home Assistant state, and host-local secrets once per day.
+The large FastFlowLM model cache is excluded because it can be downloaded again.
+The USB filesystem is mounted only for the backup and is unmounted afterward,
+including when the backup fails. Retention is 7 daily, 4 weekly, and 6 monthly
+snapshots.
+
+The backup is a filesystem snapshot of live services, not a database transaction.
+Use Home Assistant's native backup and perform a restore test before treating
+this as a complete application disaster-recovery plan.
 
 Provision the USB stick once. Confirm its device path carefully with `lsblk` before
 formatting; the following command destroys that partition's existing contents:
