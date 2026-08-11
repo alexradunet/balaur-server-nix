@@ -211,7 +211,7 @@ SSH tunnel.
 ## Local Services
 
 The dashboard monitors Home Assistant, Jellyfin, Prowlarr, Sonarr, Radarr,
-qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
+qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their service addresses include:
 
 - Dashboard: `http://balaur.home.arpa`
 - Home Assistant: `http://balaur.home.arpa:8123`
@@ -282,6 +282,12 @@ FastFlowLM has no API authentication. Keep port 8081 LAN-only and do not forward
 
 Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI as the `alex` user, so it shares the CLI's persistent sessions and development environment.
 
-**Security:** noVNC and the writable Herdr terminal have no additional application authentication. Any device that can reach these LAN ports can control the desktop or run commands as `alex`. Keep the LAN trusted and do not configure router port forwarding for these services.
+**Security:** noVNC and the writable Herdr terminal have no additional
+application authentication, so they listen only on loopback (`127.0.0.1`).
+They are not reachable directly from the LAN. The SSH tunnel above forwards
+your local `localhost` ports to those server-local services; keep SSH keys
+protected and do not configure router port forwarding for these interfaces.
 
-XFCE is the host's principal local desktop and starts through LightDM. The web desktop uses a separate persistent TigerVNC display with an XFCE session; only its noVNC gateway is exposed to the LAN, while raw VNC remains on loopback.
+XFCE is the host's principal local desktop and starts through LightDM. The web
+desktop uses a separate persistent TigerVNC display with an XFCE session; both
+the raw VNC server and noVNC gateway are loopback-only.
