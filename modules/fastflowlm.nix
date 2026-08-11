@@ -17,10 +17,8 @@
   systemd.services.fastflowlm = {
     description = "FastFlowLM Ryzen AI NPU model server";
     wants = [ "network-online.target" ];
-    after = [
-      "network-online.target"
-      "srv-app\\x2ddata.mount"
-    ];
+    after = [ "network-online.target" ];
+    unitConfig.RequiresMountsFor = [ "/srv/app-data" ];
     wantedBy = [ "multi-user.target" ];
 
     environment = {

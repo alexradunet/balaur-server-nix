@@ -181,10 +181,25 @@ Connect over SSH with `ssh alex@balaur.home.arpa` (or use `ssh alex@balaur` or
 managed `alex@yoga-laptop` Ed25519 key; password authentication, root login,
 keyboard-interactive authentication, and X11 forwarding are disabled.
 
-Web services are available directly on the LAN. Open the dashboard at
-`http://balaur.home.arpa`; Caddy forwards the standard HTTP port to the private
-dashboard process. Its links continue to use the existing service ports. The
-router must not forward any of these ports from the internet.
+The dashboard is available on the LAN at `http://balaur.home.arpa`; Caddy
+forwards the standard HTTP port to the private dashboard process. The Herdr
+terminal and web desktop are administrative interfaces and are loopback-only;
+access them through an SSH tunnel instead of exposing them to the LAN. The
+router must not forward any service ports from the internet.
+
+Create a tunnel for the administrative interfaces:
+
+```sh
+ssh -N \\
+  -L 6080:127.0.0.1:6080 \\
+  -L 7681:127.0.0.1:7681 \\
+  alex@balaur.home.arpa
+```
+
+Open `http://localhost:6080/vnc.html?autoconnect=1&resize=remote` for the web
+desktop or `http://localhost:7681` for Herdr. The dashboard links to these
+services work when the dashboard itself is opened through a matching local
+SSH tunnel.
 
 ## Local Services
 
@@ -199,8 +214,8 @@ qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs i
 - Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
 - Syncthing: `http://balaur.home.arpa:8383`
-- Web desktop: `http://balaur.home.arpa:6080`
-- Herdr: `http://balaur.home.arpa:7681`
+- Web desktop: use the SSH tunnel above, then open `http://localhost:6080`
+- Herdr: use the SSH tunnel above, then open `http://localhost:7681`
 - FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
 
 Jellyfin uses `/srv/media/ssd0/library/movies` and

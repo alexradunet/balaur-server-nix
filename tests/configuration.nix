@@ -97,8 +97,6 @@ let
         config.networking.firewall.allowedTCPPorts == [
           22
           80
-          6080
-          7681
           7878
           8081
           8082
@@ -123,6 +121,7 @@ let
         && lib.hasInfix "flm serve qwen3.6-moe:35b-a3b --host 0.0.0.0 --port 8081 --ctx-len 32768 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
         && config.systemd.services.fastflowlm.serviceConfig.LimitMEMLOCK == "infinity"
         && config.systemd.services.fastflowlm.serviceConfig.DeviceAllow == [ "/dev/accel/accel0 rw" ]
+        && config.systemd.services.fastflowlm.unitConfig.RequiresMountsFor == [ "/srv/app-data" ]
         && !config.systemd.services.fastflowlm.serviceConfig.PrivateDevices
         && builtins.elem "render" config.users.users.fastflowlm.extraGroups
         && builtins.elem "amdxdna" config.boot.kernelModules
@@ -250,7 +249,8 @@ let
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
         && config.services.caddy.enable
         && lib.hasInfix "reverse_proxy 127.0.0.1:8080" config.services.caddy.virtualHosts."http://balaur.home.arpa".extraConfig
-        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "0.0.0.0";
+        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1"
+        && lib.hasInfix "--listen 127.0.0.1:6080" config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart;
       message = "application services must be reachable from the LAN";
     }
     {
@@ -278,7 +278,9 @@ else
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     printf '%s\n' ${lib.escapeShellArg config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart} \
-      | grep --fixed-strings -- '--listen 0.0.0.0:6080'
+      | grep --fixed-strings -- '--listen 127.0.0.1:6080'
+    printf '%s\n' ${lib.escapeShellArg config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN} \
+      | grep --fixed-strings -- '127.0.0.1'
     mkdir -p "$out"
     printf '%s\n' 'All ${toString (builtins.length assertions)} configuration invariants passed.' > "$out/result"
   ''

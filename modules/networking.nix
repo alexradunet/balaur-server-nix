@@ -6,8 +6,6 @@
   networking.firewall.allowedTCPPorts = [
     22
     80
-    6080
-    7681
     7878
     8081
     8082

@@ -84,7 +84,9 @@
 
     serviceConfig = {
       DynamicUser = true;
-      ExecStart = "${pkgs.novnc}/bin/novnc --listen 0.0.0.0:6080 --vnc 127.0.0.1:5910 --file-only";
+      # The desktop runs as alex and has no application authentication. Keep the
+      # gateway loopback-only; use an SSH tunnel for remote access.
+      ExecStart = "${pkgs.novnc}/bin/novnc --listen 127.0.0.1:6080 --vnc 127.0.0.1:5910 --file-only";
       Restart = "on-failure";
       RestartSec = 5;
 
@@ -119,7 +121,8 @@
     wantedBy = [ "multi-user.target" ];
 
     environment = {
-      HERDR_WEB_LISTEN = "0.0.0.0";
+      # Herdr is an administrative shell as alex; expose it only through an SSH tunnel.
+      HERDR_WEB_LISTEN = "127.0.0.1";
       HERDR_WEB_PORT = "7681";
       HOME = "/home/alex";
       SHELL = "${pkgs.bashInteractive}/bin/bash";
