@@ -27,6 +27,10 @@ let
       message = "host identity and state version must remain stable";
     }
     {
+      assertion = builtins.elem pkgs.nodejs config.environment.systemPackages;
+      message = "Node.js must be installed in the system profile";
+    }
+    {
       assertion =
         config.nixpkgs.hostPlatform.system == "x86_64-linux"
         &&

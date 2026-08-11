@@ -8,6 +8,7 @@
   environment.systemPackages = with pkgs; [
     vim
     git
+    nodejs
     gh
     curl
     wget
