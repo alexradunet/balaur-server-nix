@@ -213,7 +213,7 @@ qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs i
 - Sonarr: `http://balaur.home.arpa:8989`
 - Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
-- Syncthing: `http://balaur.home.arpa:8383`
+- Syncthing: `http://balaur.home.arpa:8383` (LAN-only)
 - Web desktop: use the SSH tunnel above, then open `http://localhost:6080`
 - Herdr: use the SSH tunnel above, then open `http://localhost:7681`
 - FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
@@ -256,6 +256,10 @@ Its runtime configuration, automations, database, and credentials are stored in
 `/var/lib/hass`; do not put Home Assistant secrets in this repository. The USB
 Borg job does not currently include this directory, so use Home Assistant's
 built-in backup feature for its state.
+
+Syncthing is intentionally LAN-only: global discovery, relays, and automatic
+router port mapping are disabled. Use a separately secured VPN if remote sync
+is needed.
 
 FastFlowLM runs the reasoning and tool-capable `qwen3.6-moe:35b-a3b` model on the Ryzen AI XDNA2 NPU with its catalog-default 32K context. The Q4_K_S NPU build has a catalog footprint of 24.3 GB, which fits in this host's 54.5 GiB of RAM. Its OpenAI-compatible API remains on port 8081, with endpoints below `/v1`; it does not provide the old llama.cpp web UI. The first service start downloads FastFlowLM's NPU-optimized model files from Hugging Face into `/srv/app-data/fastflowlm/models`, so the API remains unavailable until that large download and model load finish. Follow progress with `journalctl -fu fastflowlm`.
 

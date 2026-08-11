@@ -118,6 +118,11 @@ let
       assertion =
         config.systemd.services.fastflowlm.environment.FLM_MODEL_PATH == "/srv/app-data/fastflowlm/models"
         && config.systemd.services.fastflowlm.environment.FLM_DISABLE_UPDATE_CHECK == "1"
+        && config.nix.gc.automatic
+        && config.nix.gc.options == "--delete-older-than 30d"
+        && config.nix.optimise.automatic
+        && config.zramSwap.enable
+        && config.zramSwap.memoryPercent == 25
         && lib.hasInfix "flm serve qwen3.6-moe:35b-a3b --host 0.0.0.0 --port 8081 --ctx-len 32768 --cors 0" config.systemd.services.fastflowlm.serviceConfig.ExecStart
         && config.systemd.services.fastflowlm.serviceConfig.LimitMEMLOCK == "infinity"
         && config.systemd.services.fastflowlm.serviceConfig.DeviceAllow == [ "/dev/accel/accel0 rw" ]
@@ -128,6 +133,14 @@ let
         && lib.versionAtLeast config.boot.kernelPackages.kernel.version "7.0"
         && config.services.syncthing.guiAddress == "0.0.0.0:8383"
         && !config.services.syncthing.openDefaultPorts
+        && config.services.syncthing.settings.options.globalAnnounceEnabled == false
+        && config.services.syncthing.settings.options.localAnnounceEnabled
+        && config.services.syncthing.settings.options.natEnabled == false
+        && config.services.syncthing.settings.options.relaysEnabled == false
+        && config.services.syncthing.settings.options.listenAddresses == [
+          "tcp://192.168.50.13:22000"
+          "quic://192.168.50.13:22000"
+        ]
         && !config.services.syncthing.overrideDevices
         && !config.services.syncthing.overrideFolders
         && config.services.syncthing.settings.folders.personal.path == "/srv/personal"
