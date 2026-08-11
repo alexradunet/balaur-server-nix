@@ -98,7 +98,6 @@ let
           22
           5055
           6080
-          6969
           7681
           7878
           8080
@@ -151,7 +150,6 @@ let
           "sonarr"
           "radarr"
           "lidarr"
-          "whisparr"
         ]
         && config.users.groups.media.gid == null
         && config.users.groups.prowlarr.gid == null
@@ -161,7 +159,6 @@ let
           "sonarr"
           "radarr"
           "lidarr"
-          "whisparr"
           "qbittorrent"
         ]
         && lib.all (service: config.nixarr.${service}.enable) [
@@ -170,7 +167,6 @@ let
           "sonarr"
           "radarr"
           "lidarr"
-          "whisparr"
           "qbittorrent"
         ]
         && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
@@ -182,7 +178,6 @@ let
         && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
         && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
         && config.nixarr.lidarr.stateDir == "/srv/app-data/lidarr"
-        && config.nixarr.whisparr.stateDir == "/srv/app-data/whisparr"
         && config.services.seerr.enable
         && !config.services.seerr.openFirewall
         && config.services.seerr.port == 5055
@@ -226,7 +221,6 @@ let
         && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
         && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
         && builtins.elem "qbittorrent.service" config.systemd.services.arr-qbittorrent-sync.after
-        && builtins.elem "whisparr.service" config.systemd.services.arr-qbittorrent-sync.after
         && lib.hasInfix "arr-qbittorrent-sync" config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart
         && config.systemd.services.arr-qbittorrent-sync.serviceConfig.TimeoutStartSec == 240
         && lib.all (
@@ -237,7 +231,6 @@ let
           { service = "sonarr"; mount = "/srv/media/ssd1"; }
           { service = "radarr"; mount = "/srv/media/ssd0"; }
           { service = "lidarr"; mount = "/srv/media/ssd1"; }
-          { service = "whisparr"; mount = "/srv/media/ssd0"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd0"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd1"; }
         ]
@@ -246,7 +239,6 @@ let
           "sonarr"
           "radarr"
           "lidarr"
-          "whisparr"
           "qbittorrent"
         ]
         && config.services.home-assistant.enable

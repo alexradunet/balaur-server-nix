@@ -31,7 +31,7 @@ stdenv.mkDerivation (finalAttrs: {
 
     install -Dm755 flm "$out/libexec/fastflowlm/flm"
     install -Dm755 flm-real "$out/libexec/fastflowlm/flm-real"
-    cp -a lib model_info.json model_list.json "$out/libexec/fastflowlm/"
+    cp -a lib xclbins model_info.json model_list.json "$out/libexec/fastflowlm/"
     # Software-emulation plugins are not used for the physical XDNA NPU and
     # require an otherwise-unneeded, ABI-pinned protobuf runtime.
     rm -f "$out/libexec/fastflowlm/lib/"libxrt_{hwemu,swemu}.so*

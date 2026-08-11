@@ -18,12 +18,10 @@ APPS = {
     "sonarr": (8989, "tvCategory", "sonarr"),
     "radarr": (7878, "movieCategory", "radarr"),
     "lidarr": (8686, "musicCategory", "lidarr"),
-    "whisparr": (6969, "tvCategory", "whisparr"),
 }
 API_VERSIONS = ("v3", "v1")
 CATEGORY_PATHS = {
     "radarr": "/srv/media/ssd0/downloads/complete/radarr",
-    "whisparr": "/srv/media/ssd0/downloads/complete/whisparr",
     "sonarr": "/srv/media/ssd1/downloads/complete/sonarr",
     "lidarr": "/srv/media/ssd1/downloads/complete/lidarr",
 }

@@ -11,7 +11,6 @@
       sonarr = null;
       radarr = null;
       lidarr = null;
-      whisparr = null;
       qbittorrent = null;
     };
     gids = {
@@ -41,7 +40,6 @@
     sonarr.enable = true;
     radarr.enable = true;
     lidarr.enable = true;
-    whisparr.enable = true;
 
     qbittorrent = {
       enable = true;
@@ -51,18 +49,6 @@
       qui.enable = false;
       webuiPort = 8082;
       peerPort = 6881;
-
-      # Whisparr does not yet accept qBittorrent 5.2's HTTP 204 authentication
-      # response. Keep 5.1 until that client is updated.
-      package = pkgs.qbittorrent-nox.overrideAttrs (_old: {
-        version = "5.1.4";
-        src = pkgs.fetchFromGitHub {
-          owner = "qbittorrent";
-          repo = "qBittorrent";
-          tag = "release-5.1.4";
-          hash = "sha256-9RfKir/e+8Kvln20F+paXqtWzC3KVef2kNGyk1YpSv4=";
-        };
-      });
 
       # Match the existing two-disk layout rather than Nixarr's single-disk
       # defaults. Existing category-specific paths remain in qBittorrent state.
@@ -94,7 +80,6 @@
   services.sonarr.settings.auth.required = "DisabledForLocalAddresses";
   services.radarr.settings.auth.required = "DisabledForLocalAddresses";
   services.lidarr.settings.auth.required = "DisabledForLocalAddresses";
-  services.whisparr.settings.auth.required = "DisabledForLocalAddresses";
 
   services.seerr = {
     enable = true;
@@ -122,10 +107,6 @@
   # real /var/lib/prowlarr directory instead of requiring a private-state symlink.
   systemd.services.prowlarr.serviceConfig.DynamicUser = pkgs.lib.mkForce false;
 
-  # Nixarr sets the shared-media umask for most services. Whisparr still needs
-  # an explicit override in its current module.
-  systemd.services.whisparr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
-
   # The storage filesystems are intentionally nofail so the host can still boot
   # degraded. Stop only the affected media services rather than letting them use
   # empty mount points on the OS filesystem.
@@ -146,10 +127,6 @@
   systemd.services.lidarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
     "/srv/app-data"
     "/srv/media/ssd1"
-  ];
-  systemd.services.whisparr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
-    "/srv/app-data"
-    "/srv/media/ssd0"
   ];
   systemd.services.qbittorrent.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
     "/srv/app-data"
@@ -214,14 +191,12 @@
       "sonarr.service"
       "radarr.service"
       "lidarr.service"
-      "whisparr.service"
     ];
     after = [
       "qbittorrent.service"
       "sonarr.service"
       "radarr.service"
       "lidarr.service"
-      "whisparr.service"
     ];
     wantedBy = [ "multi-user.target" ];
 

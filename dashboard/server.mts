@@ -15,7 +15,6 @@ const services = [
   { id: "sonarr", name: "Sonarr", host: "127.0.0.1", port: 8989 },
   { id: "radarr", name: "Radarr", host: "127.0.0.1", port: 7878 },
   { id: "lidarr", name: "Lidarr", host: "127.0.0.1", port: 8686 },
-  { id: "whisparr", name: "Whisparr", host: "127.0.0.1", port: 6969 },
   { id: "qbittorrent", name: "qBittorrent", host: "127.0.0.1", port: 8082 },
   { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
   { id: "desktop", name: "Web Desktop", host: "127.0.0.1", port: 6080 },

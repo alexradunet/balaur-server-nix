@@ -150,15 +150,40 @@ SSH and firewall policy, loopback-only services, and systemd sandboxing. The
 dashboard check starts the real Node server and verifies its HTTP
 routes, security headers, metrics response, and service status payload.
 
+## LAN DNS (ASUS RT-AX82U)
+
+Use the router's local DNS so the server has a stable, memorable LAN address:
+
+1. Open the ASUSWRT administration page and go to **Advanced Settings → LAN →
+   DHCP Server**.
+2. Set **Domain Name** to `home.arpa`.
+3. Under **Manually Assigned IP around the DHCP list**, reserve
+   `192.168.50.13` for the server's MAC address and use the hostname `balaur`.
+4. Leave **DNS Server 1** and **DNS Server 2** blank so DHCP clients use the
+   router's local resolver.
+5. Apply the settings, then reconnect clients or renew their DHCP leases.
+
+`home.arpa` is the reserved domain for private home networks. Verify resolution
+from a LAN client with:
+
+```sh
+getent hosts balaur.home.arpa
+ssh alex@balaur.home.arpa
+```
+
+The short name `balaur` may also work on clients that honor the DHCP search
+domain. The IP address remains a fallback if local DNS is unavailable.
+
 ## SSH Access
 
-Connect over SSH with `ssh alex@192.168.50.13`. Authentication uses the
-declaratively managed `alex@yoga-laptop` Ed25519 key; password authentication,
-root login, keyboard-interactive authentication, and X11 forwarding are disabled.
+Connect over SSH with `ssh alex@balaur.home.arpa` (or use `ssh alex@balaur` or
+`ssh alex@192.168.50.13` as fallbacks). Authentication uses the declaratively
+managed `alex@yoga-laptop` Ed25519 key; password authentication, root login,
+keyboard-interactive authentication, and X11 forwarding are disabled.
 
 Web services are available directly on the LAN. Open the dashboard at
-`http://192.168.50.13:8080`; its links use the same server address. The router
-must not forward any of these ports from the internet.
+`http://balaur.home.arpa:8080`; its links use the same server address. The
+router must not forward any of these ports from the internet.
 
 ## Local Services
 
@@ -166,20 +191,19 @@ The dashboard monitors Home Assistant, Jellyfin, Seerr, the Servarr suite,
 qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs
 include:
 
-- Dashboard: `http://192.168.50.13:8080`
-- Home Assistant: `http://192.168.50.13:8123`
-- Jellyfin: `http://192.168.50.13:8096`
-- Seerr: `http://192.168.50.13:5055`
-- Prowlarr: `http://192.168.50.13:9696`
-- Sonarr: `http://192.168.50.13:8989`
-- Radarr: `http://192.168.50.13:7878`
-- Lidarr: `http://192.168.50.13:8686`
-- Whisparr: `http://192.168.50.13:6969`
-- qBittorrent: `http://192.168.50.13:8082`
-- Syncthing: `http://192.168.50.13:8383`
-- Web desktop: `http://192.168.50.13:6080`
-- Herdr: `http://192.168.50.13:7681`
-- FastFlowLM models API: `http://192.168.50.13:8081/v1/models`
+- Dashboard: `http://balaur.home.arpa:8080`
+- Home Assistant: `http://balaur.home.arpa:8123`
+- Jellyfin: `http://balaur.home.arpa:8096`
+- Seerr: `http://balaur.home.arpa:5055`
+- Prowlarr: `http://balaur.home.arpa:9696`
+- Sonarr: `http://balaur.home.arpa:8989`
+- Radarr: `http://balaur.home.arpa:7878`
+- Lidarr: `http://balaur.home.arpa:8686`
+- qBittorrent: `http://balaur.home.arpa:8082`
+- Syncthing: `http://balaur.home.arpa:8383`
+- Web desktop: `http://balaur.home.arpa:6080`
+- Herdr: `http://balaur.home.arpa:7681`
+- FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
 
 Jellyfin first-run setup is available at its LAN URL. Add libraries from
 `/srv/media/ssd0` and `/srv/media/ssd1`. Its service account belongs to the
@@ -187,7 +211,7 @@ Jellyfin first-run setup is available at its LAN URL. Add libraries from
 `/srv/app-data/jellyfin`. The replaceable media itself is not included in the
 USB Borg backup.
 
-Complete Seerr's first-run setup at `http://192.168.50.13:5055`. Select
+Complete Seerr's first-run setup at `http://balaur.home.arpa:5055`. Select
 Jellyfin and use `http://127.0.0.1:8096` for the internal server URL, then add
 Sonarr at `http://127.0.0.1:8989` and Radarr at `http://127.0.0.1:7878`. API
 keys are available with `sudo nixarr list-api-keys`. Seerr's database and
@@ -195,8 +219,8 @@ credentials persist on mirrored storage in `/srv/app-data/seerr`; onboarding
 and user authorization remain application-managed state.
 
 Nixarr declaratively manages Jellyfin, Prowlarr, Sonarr, Radarr, Lidarr,
-Whisparr, qBittorrent, their service accounts, shared permissions, and state
-beneath `/srv/app-data`. The migration preserves the installed host's existing
+qBittorrent, their service accounts, shared permissions, and state beneath
+`/srv/app-data`. The migration preserves the installed host's existing
 service UIDs/GIDs and application databases. Readarr and Bazarr are no longer
 enabled; their old `/srv/app-data` directories are retained for deliberate
 manual cleanup rather than being deleted during activation.
@@ -215,15 +239,13 @@ paths. The declarative default and incomplete paths are
 `/srv/media/ssd0/downloads/incomplete`; category paths are:
 
 - `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
-- `whisparr`: `/srv/media/ssd0/downloads/complete/whisparr`
 - `sonarr`: `/srv/media/ssd1/downloads/complete/sonarr`
 - `lidarr`: `/srv/media/ssd1/downloads/complete/lidarr`
 
-Use `/srv/media/ssd0/library/movies`, `/srv/media/ssd0/library/whisparr`,
-`/srv/media/ssd1/library/tv`, and `/srv/media/ssd1/library/music` as the
-corresponding root folders. Keeping each category and library on the same SSD
-allows hardlinks and atomic imports. Nixarr also keeps Sonarr, Radarr, Lidarr,
-and Whisparr linked to Prowlarr with Full Sync.
+Use `/srv/media/ssd0/library/movies`, `/srv/media/ssd1/library/tv`, and
+`/srv/media/ssd1/library/music` as the corresponding root folders. Keeping each
+category and library on the same SSD allows hardlinks and atomic imports.
+Nixarr also keeps Sonarr, Radarr, and Lidarr linked to Prowlarr with Full Sync.
 
 Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to
