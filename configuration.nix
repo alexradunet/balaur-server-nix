@@ -355,6 +355,8 @@ in
   systemd.tmpfiles.rules = [
     "d /srv/app-data 2775 root media -"
     "d /srv/app-data/readarr 0750 readarr readarr -"
+    # Migrate files previously mapped through Prowlarr's DynamicUser namespace.
+    "Z /srv/app-data/prowlarr - prowlarr prowlarr -"
     "d /srv/app-data/fastflowlm 0750 fastflowlm fastflowlm -"
     "d /srv/app-data/fastflowlm/models 0750 fastflowlm fastflowlm -"
     "d /srv/media/ssd0/downloads 2775 qbittorrent media -"
@@ -522,10 +524,61 @@ in
     };
   };
 
+  # Nixarr supplies a static Prowlarr account, but the upstream NixOS service
+  # still enables DynamicUser. Disable it so systemd can reuse the existing
+  # real /var/lib/prowlarr directory instead of requiring a private-state symlink.
+  systemd.services.prowlarr.serviceConfig.DynamicUser = pkgs.lib.mkForce false;
+
   # Nixarr sets the shared-media umask for its services. Readarr and Whisparr
   # still need explicit overrides in their current modules.
   systemd.services.readarr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
   systemd.services.whisparr.serviceConfig.UMask = pkgs.lib.mkForce "0002";
+
+  # NixOS regenerates qBittorrent.conf on every service start. Inject a stable,
+  # host-local Web UI password afterward so reboots do not invalidate Arr clients.
+  systemd.services.qbittorrent.serviceConfig.ExecStartPre = pkgs.lib.mkAfter [
+    "+${pkgs.writeShellScript "qbittorrent-webui-password" ''
+      set -euo pipefail
+      secret=/srv/secrets/qbittorrent-webui-password
+      config=/srv/app-data/qbittorrent/qBittorrent/config/qBittorrent.conf
+
+      if [[ ! -s "$secret" ]]; then
+        umask 0077
+        ${pkgs.openssl}/bin/openssl rand -base64 24 | ${pkgs.coreutils}/bin/tr -d '\n' > "$secret"
+      fi
+
+      password_hash="$(${pkgs.nodejs}/bin/node - "$secret" <<'EOF'
+      const crypto = require("crypto");
+      const fs = require("fs");
+      const password = fs.readFileSync(process.argv[2], "utf8").trim();
+      const salt = crypto.randomBytes(16);
+      const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, "sha512");
+      process.stdout.write(`@ByteArray(''${salt.toString("base64")}:''${hash.toString("base64")})`);
+      EOF
+      )"
+
+      ${pkgs.gawk}/bin/awk -v value="$password_hash" '
+        $0 == "[Preferences]" {
+          print
+          print "WebUI\\Password_PBKDF2=" value
+          next
+        }
+        $0 !~ /^WebUI\\Password_PBKDF2=/ { print }
+      ' "$config" > "$config.tmp"
+      ${pkgs.coreutils}/bin/chown qbittorrent:media "$config.tmp"
+      ${pkgs.coreutils}/bin/chmod 0600 "$config.tmp"
+      ${pkgs.coreutils}/bin/mv "$config.tmp" "$config"
+    ''}"
+  ];
+
+  # Nixarr normally maps qBittorrent's internal API only when its optional qui
+  # frontend is enabled. The native Web UI needs an explicit namespace mapping.
+  vpnNamespaces.wg.portMappings = [
+    {
+      from = 8082;
+      to = 8082;
+    }
+  ];
 
   # VPN-Confinement gives qBittorrent a fail-closed WireGuard namespace.
   # Preserve the existing localhost/LAN endpoint used by the Arr applications.

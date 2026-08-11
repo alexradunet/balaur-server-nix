@@ -165,6 +165,7 @@ let
         && config.services.jellyfin.configDir == "/srv/app-data/jellyfin/config"
         && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
         && config.nixarr.prowlarr.stateDir == "/srv/app-data/prowlarr"
+        && !config.systemd.services.prowlarr.serviceConfig.DynamicUser
         && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
         && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
         && config.nixarr.lidarr.stateDir == "/srv/app-data/lidarr"
@@ -184,12 +185,18 @@ let
         && !config.services.qbittorrent.serverConfig.Preferences."WebUI\\AuthSubnetWhitelistEnabled"
         && config.services.qbittorrent.serverConfig.Preferences."WebUI\\CSRFProtection"
         && config.services.qbittorrent.serverConfig.Preferences."WebUI\\LocalHostAuth"
+        && builtins.any (
+          command: lib.hasInfix "qbittorrent-webui-password" command
+        ) config.systemd.services.qbittorrent.serviceConfig.ExecStartPre
         && config.systemd.services.qbittorrent.vpnConfinement.enable
         && config.systemd.services.qbittorrent.vpnConfinement.vpnNamespace == "wg"
         && config.vpnNamespaces.wg.wireguardConfigFile == "/srv/secrets/protonvpn.conf"
         && builtins.any (
           entry: entry.port == 6881 && entry.protocol == "both"
         ) config.vpnNamespaces.wg.openVPNPorts
+        && builtins.any (
+          entry: entry.from == 8082 && entry.to == 8082
+        ) config.vpnNamespaces.wg.portMappings
         && builtins.elem "qbittorrent.service" config.systemd.services.qbt-webui-proxy.requires
         && lib.hasInfix "TCP:192.168.15.1:8082" config.systemd.services.qbt-webui-proxy.serviceConfig.ExecStart
         && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts

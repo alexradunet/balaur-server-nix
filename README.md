@@ -182,8 +182,11 @@ host's existing service UIDs/GIDs and application databases.
 qBittorrent is fail-closed inside Nixarr's WireGuard namespace using
 `/srv/secrets/protonvpn.conf`. A host proxy preserves its existing
 `127.0.0.1:8082` and LAN endpoint, while peer port 6881 is exposed only through
-the VPN. Authentication remains required through the proxy. Its declarative
-default and incomplete paths are `/srv/media/ssd0/downloads/complete` and
+the VPN. Authentication remains required through the proxy. The stable `admin`
+password is generated outside the Nix store and can be read with
+`sudo cat /srv/secrets/qbittorrent-webui-password`; use it in each Arr download
+client as well. Its declarative default and incomplete paths are
+`/srv/media/ssd0/downloads/complete` and
 `/srv/media/ssd0/downloads/incomplete`; keep these category save paths:
 
 - `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
