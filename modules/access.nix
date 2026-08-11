@@ -37,6 +37,8 @@
 
   services.openssh = {
     enable = true;
+    # networking.nix opens SSH only on the trusted LAN interfaces.
+    openFirewall = false;
 
     settings = {
       AllowUsers = [ "alex" ];

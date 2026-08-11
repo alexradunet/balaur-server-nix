@@ -1,9 +1,7 @@
 { ... }:
 
-{
-  # Expose application UIs and Syncthing transport only to networks that can
-  # reach this host. The router must not forward these ports from the internet.
-  networking.firewall.allowedTCPPorts = [
+let
+  lanTCPPorts = [
     22
     80
     7878
@@ -16,8 +14,23 @@
     9696
     22000
   ];
-  networking.firewall.allowedUDPPorts = [
+  lanUDPPorts = [
     21027
     22000
   ];
+in
+{
+  # These services are intended for the trusted home LAN only. Keep the
+  # firewall interface-scoped so a future VPN, bridge, or WAN interface does
+  # not automatically inherit the application ports.
+  networking.firewall.interfaces = {
+    enp100s0 = {
+      allowedTCPPorts = lanTCPPorts;
+      allowedUDPPorts = lanUDPPorts;
+    };
+    wlp98s0 = {
+      allowedTCPPorts = lanTCPPorts;
+      allowedUDPPorts = lanUDPPorts;
+    };
+  };
 }

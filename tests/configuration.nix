@@ -84,6 +84,7 @@ let
     {
       assertion =
         config.services.openssh.enable
+        && !config.services.openssh.openFirewall
         && config.services.openssh.settings.AllowUsers == [ "alex" ]
         && !config.services.openssh.settings.KbdInteractiveAuthentication
         && config.services.openssh.settings.PermitRootLogin == "no"
@@ -94,7 +95,9 @@ let
     }
     {
       assertion =
-        config.networking.firewall.allowedTCPPorts == [
+        config.networking.firewall.allowedTCPPorts == [ ]
+        && config.networking.firewall.allowedUDPPorts == [ ]
+        && config.networking.firewall.interfaces.enp100s0.allowedTCPPorts == [
           22
           80
           7878
@@ -107,11 +110,14 @@ let
           9696
           22000
         ]
-        &&
-          config.networking.firewall.allowedUDPPorts == [
-            21027
-            22000
-          ];
+        && config.networking.firewall.interfaces.enp100s0.allowedUDPPorts == [
+          21027
+          22000
+        ]
+        && config.networking.firewall.interfaces.wlp98s0.allowedTCPPorts
+          == config.networking.firewall.interfaces.enp100s0.allowedTCPPorts
+        && config.networking.firewall.interfaces.wlp98s0.allowedUDPPorts
+          == config.networking.firewall.interfaces.enp100s0.allowedUDPPorts;
       message = "the firewall must expose exactly the intended LAN services";
     }
     {
