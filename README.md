@@ -188,13 +188,14 @@ router must not forward any of these ports from the internet.
 
 ## Local Services
 
-The dashboard monitors Home Assistant, Jellyfin, FlexGet, qBittorrent,
+The dashboard monitors Home Assistant, Jellyfin, Sonarr, Radarr, qBittorrent,
 Syncthing, the web desktop, Herdr, and FastFlowLM. Their LAN URLs include:
 
 - Dashboard: `http://balaur.home.arpa`
 - Home Assistant: `http://balaur.home.arpa:8123`
 - Jellyfin: `http://balaur.home.arpa:8096`
-- FlexGet: `http://balaur.home.arpa:5050`
+- Sonarr: `http://balaur.home.arpa:8989`
+- Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
 - Syncthing: `http://balaur.home.arpa:8383`
 - Web desktop: `http://balaur.home.arpa:6080`
@@ -206,50 +207,25 @@ Jellyfin uses `/srv/media/ssd0/library/movies` and
 and persistent state is stored in `/srv/app-data/jellyfin`. Replaceable media
 is not included in the USB Borg backup.
 
-The media automation is deliberately limited to FlexGet and qBittorrent.
-FlexGet runs every 15 minutes, searches FileList directly for 2160p movies and
-TV episodes, and sends accepted releases to qBittorrent. Its authenticated LAN
-Web UI is available on port 5050 with username `flexget`; read the generated
-password with `sudo cat /srv/secrets/flexget-webui-password`. Task definitions
-remain declarative in `modules/flexget.nix`, while the UI provides history,
-manual execution, and movie-list management. Completed torrents go
-directly into Jellyfin's recursive library while they seed, eliminating the
-Arr import, rename, hardlink, and cross-service permission workflow.
+Media automation is deliberately limited to Sonarr, Radarr, and qBittorrent.
+The existing Sonarr and Radarr databases are reused from `/srv/app-data`, so
+monitored titles, quality profiles, and library history survive the rollback.
+Prowlarr, Lidarr, Seerr, and FlexGet remain disabled. Configure only the
+indexers actually needed directly in Sonarr and Radarr.
 
-The first FlexGet start copies the enabled FileList username and passkey from
-the retained Prowlarr database into
-`/srv/secrets/flexget-filelist.json`. Both that file and the generated
-`/srv/app-data/flexget/variables.yml` remain outside the Nix store with mode
-0600. The old `/srv/app-data/{prowlarr,sonarr,radarr,lidarr,seerr}` directories
-are intentionally retained for rollback and can be removed manually after the
-new workflow has been verified.
+Use `/srv/media/ssd1/library/tv` as Sonarr's root folder and
+`/srv/media/ssd0/library/movies` as Radarr's root folder. A boot-time service
+configures their qBittorrent clients and category paths automatically:
 
-Add a movie request to FlexGet's persistent list, then optionally trigger an
-immediate search:
-
-```sh
-sudo -u flexget flexget -c /srv/app-data/flexget/flexget.yml \
-  movie-list add movies "Movie Title (2024)"
-sudo -u flexget flexget -c /srv/app-data/flexget/flexget.yml \
-  execute --tasks movies --discover-now
-```
-
-TV shows are declarative in `modules/flexget.nix`. Add a show under
-`series.shows` with `begin` set to the next episode wanted; this avoids
-redownloading an existing library. `Shrinking` was migrated at `S04E01` because
-the old Sonarr database marks it continuing and has files through `S03E11`.
-The ended `Planet Earth` series and already-downloaded `The Dark Knight` movie
-do not need active monitoring.
+- `sonarr`: `/srv/media/ssd1/downloads/complete/sonarr`
+- `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
 
 qBittorrent remains fail-closed inside Nixarr's WireGuard namespace using
 `/srv/secrets/protonvpn.conf`. A host proxy provides its authenticated
 `127.0.0.1:8082` and LAN endpoint, while peer port 6881 is exposed only through
-the VPN. The stable `admin` password is generated outside the Nix store and can
-be read with `sudo cat /srv/secrets/qbittorrent-webui-password`. FlexGet uses
-that credential through its protected runtime variables file. Default manual
-downloads still use `/srv/media/ssd0/downloads/complete`; FlexGet movie and TV
-tasks override the completed path to their respective Jellyfin libraries and
-use an incomplete directory on the same SSD.
+the VPN. Its stable `admin` password is generated outside the Nix store and can
+be read with `sudo cat /srv/secrets/qbittorrent-webui-password`; the boot-time
+synchronization service installs that credential in Sonarr and Radarr.
 
 Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to

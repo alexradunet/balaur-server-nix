@@ -1,20 +1,21 @@
 { pkgs, ... }:
 
 {
-  # Preserve the UIDs/GIDs already assigned on this installed host. Nixarr's
-  # fixed IDs are useful for fresh installs but would orphan existing state and
-  # media files during an in-place migration.
+  # Sonarr and Radarr were briefly disabled, so their accounts no longer exist
+  # even though their databases retain the installed host's original owners.
+  # Reuse those UIDs exactly; keep the still-existing service IDs dynamic.
   util-nixarr.globals = {
-    uids = builtins.mapAttrs (_name: _uid: pkgs.lib.mkForce null) {
-      jellyfin = null;
-      qbittorrent = null;
+    uids = {
+      jellyfin = pkgs.lib.mkForce null;
+      sonarr = pkgs.lib.mkForce 274;
+      radarr = pkgs.lib.mkForce 275;
+      qbittorrent = pkgs.lib.mkForce null;
     };
     gids.media = pkgs.lib.mkForce null;
   };
 
-  # Nixarr remains a small, useful wrapper around Jellyfin, qBittorrent, shared
-  # media permissions, and fail-closed WireGuard confinement. FlexGet is a
-  # native NixOS service in flexget.nix; no Arr application is enabled.
+  # Nixarr owns Jellyfin, Sonarr, Radarr, qBittorrent, shared media
+  # permissions, and fail-closed WireGuard confinement.
   nixarr = {
     enable = true;
     mediaDir = "/srv/media/ssd0";
@@ -26,6 +27,8 @@
     };
 
     jellyfin.enable = true;
+    sonarr.enable = true;
+    radarr.enable = true;
 
     qbittorrent = {
       enable = true;
@@ -55,6 +58,11 @@
   # Preserve the existing Jellyfin database during the in-place migration.
   services.jellyfin.dataDir = pkgs.lib.mkForce "/srv/app-data/jellyfin";
 
+  # Local API access is used only by the credential synchronization service;
+  # browser clients arriving from the LAN still require authentication.
+  services.sonarr.settings.auth.required = "DisabledForLocalAddresses";
+  services.radarr.settings.auth.required = "DisabledForLocalAddresses";
+
   # The storage filesystems are intentionally nofail so the host can still boot
   # degraded. Stop only the affected services instead of using empty mount
   # points on the OS filesystem.
@@ -62,6 +70,14 @@
     "/srv/app-data"
     "/srv/media/ssd0"
     "/srv/media/ssd1"
+  ];
+  systemd.services.sonarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd1"
+  ];
+  systemd.services.radarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
+    "/srv/app-data"
+    "/srv/media/ssd0"
   ];
   systemd.services.qbittorrent.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
     "/srv/app-data"
@@ -72,8 +88,8 @@
   systemd.services.qbittorrent.serviceConfig.UMask = pkgs.lib.mkForce "0002";
 
   # NixOS regenerates qBittorrent.conf on every service start. Inject a stable,
-  # host-local Web UI password afterward so FlexGet and browser sessions retain
-  # one credential without putting it in the Nix store.
+  # host-local Web UI password afterward so the Arr clients and browser sessions
+  # retain one credential without putting it in the Nix store.
   systemd.services.qbittorrent.serviceConfig = {
     Restart = "on-failure";
     RestartSec = 10;
@@ -113,6 +129,63 @@
       ${pkgs.coreutils}/bin/mv "$config.tmp" "$config"
       ''}"
     ];
+  };
+
+  # Converge the Sonarr and Radarr download clients on the host-local password.
+  # Their APIs mask saved passwords, so overwrite the field at boot, then
+  # restart qBittorrent once to clear any shared proxy-IP authentication ban.
+  systemd.services.arr-qbittorrent-sync = {
+    description = "Synchronize qBittorrent credentials in Sonarr and Radarr";
+    wants = [
+      "qbt-webui-proxy.service"
+      "sonarr.service"
+      "radarr.service"
+    ];
+    after = [
+      "qbt-webui-proxy.service"
+      "sonarr.service"
+      "radarr.service"
+    ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      RuntimeDirectory = "arr-qbittorrent-sync";
+      RuntimeDirectoryMode = "0700";
+      TimeoutStartSec = 240;
+      Restart = "on-failure";
+      RestartSec = 30;
+      ExecStart = pkgs.writeShellScript "arr-qbittorrent-sync" ''
+        status=0
+        ${pkgs.coreutils}/bin/rm -f "$RUNTIME_DIRECTORY/restart-required"
+        ${pkgs.python3}/bin/python ${../arr-qbittorrent-sync.py} \
+          --password-file /srv/secrets/qbittorrent-webui-password \
+          --restart-marker "$RUNTIME_DIRECTORY/restart-required" || status=$?
+
+        if [[ -e "$RUNTIME_DIRECTORY/restart-required" ]]; then
+          ${pkgs.systemd}/bin/systemctl restart qbittorrent.service || status=$?
+        fi
+
+        ${pkgs.python3}/bin/python ${../arr-qbittorrent-sync.py} \
+          --password-file /srv/secrets/qbittorrent-webui-password \
+          --sync-categories \
+          --timeout 60 || status=$?
+        exit "$status"
+      '';
+
+      CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_UNIX"
+      ];
+      RestrictNamespaces = true;
+    };
   };
 
   # Nixarr normally maps qBittorrent's internal API only when its optional qui

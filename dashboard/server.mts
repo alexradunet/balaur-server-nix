@@ -10,7 +10,8 @@ const index = await readFile(new URL("index.html", import.meta.url));
 const services = [
   { id: "home-assistant", name: "Home Assistant", host: "127.0.0.1", port: 8123 },
   { id: "jellyfin", name: "Jellyfin", host: "127.0.0.1", port: 8096 },
-  { id: "flexget", name: "FlexGet", host: "127.0.0.1", port: 5050 },
+  { id: "sonarr", name: "Sonarr", host: "127.0.0.1", port: 8989 },
+  { id: "radarr", name: "Radarr", host: "127.0.0.1", port: 7878 },
   { id: "qbittorrent", name: "qBittorrent", host: "127.0.0.1", port: 8082 },
   { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
   { id: "desktop", name: "Web Desktop", host: "127.0.0.1", port: 6080 },

@@ -30,19 +30,21 @@ pkgs.runCommand "balaur-dashboard-tests"
     grep --fixed-strings '<title>balaur</title>' index.html
     grep --fixed-strings 'serviceUrl(8123)' index.html
     grep --fixed-strings 'serviceUrl(8096)' index.html
-    grep --fixed-strings 'serviceUrl(5050)' index.html
+    grep --fixed-strings 'serviceUrl(8989)' index.html
+    grep --fixed-strings 'serviceUrl(7878)' index.html
     grep --fixed-strings 'serviceUrl(8082)' index.html
     grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
     grep --fixed-strings 'serviceUrl(7681)' index.html
     grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
+    grep --fixed-strings 'Sonarr' index.html
+    grep --fixed-strings 'Radarr' index.html
     grep --fixed-strings 'FastFlowLM' index.html
-    if grep --fixed-strings 'Sonarr' index.html; then exit 1; fi
     grep --fixed-strings '<h3 id="home-services">Home</h3>' index.html
     grep --fixed-strings '<h3 id="media-services">Media</h3>' index.html
     grep --fixed-strings '<h3 id="file-services">Downloads &amp; Files</h3>' index.html
     grep --fixed-strings '<h3 id="tool-services">Tools &amp; Compute</h3>' index.html
-    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 8
+    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 9
     grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
     grep --fixed-strings 'data.disks.map' index.html
 
@@ -58,8 +60,8 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.disks[0].mounted == true)
         and (.disks[0].total > 0)
         and ([.disks[].mounted] | all(type == "boolean"))
-        and (.services | length == 8)
-        and ([.services[].id] == ["home-assistant", "jellyfin", "flexget", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
+        and (.services | length == 9)
+        and ([.services[].id] == ["home-assistant", "jellyfin", "sonarr", "radarr", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 
