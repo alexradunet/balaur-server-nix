@@ -3,18 +3,18 @@
 let
   inherit (pkgs) lib;
 
+  testedFlexgetConfig = pkgs.writeText "tested-flexget.yml" ''
+    ${config.services.flexget.config}
+
+    schedules: no
+  '';
+
   hardened =
     service:
     let
       serviceConfig = config.systemd.services.${service}.serviceConfig;
     in
-    serviceConfig.CapabilityBoundingSet
-      == (
-        if service == "arr-qbittorrent-sync" then
-          [ "CAP_DAC_READ_SEARCH" ]
-        else
-          ""
-      )
+    serviceConfig.CapabilityBoundingSet == ""
     && serviceConfig.NoNewPrivileges
     && serviceConfig.PrivateDevices
     && serviceConfig.PrivateTmp
@@ -96,19 +96,15 @@ let
       assertion =
         config.networking.firewall.allowedTCPPorts == [
           22
-          5055
+          80
+          5050
           6080
           7681
-          7878
-          8080
           8081
           8082
           8096
           8123
           8383
-          8686
-          8989
-          9696
           22000
         ]
         &&
@@ -142,50 +138,52 @@ let
         && config.nixarr.stateDir == "/srv/app-data"
         && config.nixarr.vpn.enable
         && config.nixarr.vpn.wgConf == "/srv/secrets/protonvpn.conf"
-        && config.nixarr.prowlarr.settings-sync.enable-nixarr-apps
-        && lib.all (
-          service: config.services.${service}.settings.auth.required == "DisabledForLocalAddresses"
-        ) [
-          "prowlarr"
-          "sonarr"
-          "radarr"
-          "lidarr"
-        ]
         && config.users.groups.media.gid == null
-        && config.users.groups.prowlarr.gid == null
         && lib.all (user: config.users.users.${user}.uid == null) [
           "jellyfin"
+          "qbittorrent"
+        ]
+        && config.nixarr.jellyfin.enable
+        && config.nixarr.qbittorrent.enable
+        && lib.all (service: !config.nixarr.${service}.enable) [
           "prowlarr"
           "sonarr"
           "radarr"
           "lidarr"
-          "qbittorrent"
         ]
-        && lib.all (service: config.nixarr.${service}.enable) [
-          "jellyfin"
-          "prowlarr"
-          "sonarr"
-          "radarr"
-          "lidarr"
-          "qbittorrent"
-        ]
+        && !config.services.seerr.enable
         && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
         && config.services.jellyfin.dataDir == "/srv/app-data/jellyfin"
         && config.services.jellyfin.configDir == "/srv/app-data/jellyfin/config"
         && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
-        && config.nixarr.prowlarr.stateDir == "/srv/app-data/prowlarr"
-        && !config.systemd.services.prowlarr.serviceConfig.DynamicUser
-        && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
-        && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
-        && config.nixarr.lidarr.stateDir == "/srv/app-data/lidarr"
-        && config.services.seerr.enable
-        && !config.services.seerr.openFirewall
-        && config.services.seerr.port == 5055
-        && config.services.seerr.configDir == "/srv/app-data/seerr"
-        && config.users.users.seerr.group == "seerr"
-        && !config.systemd.services.seerr.serviceConfig.DynamicUser
-        && config.systemd.services.seerr.serviceConfig.User == "seerr"
-        && builtins.elem "/srv/app-data/seerr" config.systemd.services.seerr.unitConfig.RequiresMountsFor
+        && config.services.flexget.enable
+        && config.services.flexget.user == "flexget"
+        && config.services.flexget.homeDir == "/srv/app-data/flexget"
+        && config.services.flexget.interval == "15m"
+        && config.services.flexget.systemScheduler
+        && config.users.users.flexget.group == "media"
+        && lib.hasInfix "variables: variables.yml" config.services.flexget.config
+        && lib.hasInfix "bind: 0.0.0.0" config.services.flexget.config
+        && lib.hasInfix "port: 5050" config.services.flexget.config
+        && lib.hasInfix "web_ui: yes" config.services.flexget.config
+        && lib.hasInfix "filelist_api" config.services.flexget.config
+        && lib.hasInfix "interval: 15 minutes" config.services.flexget.config
+        && lib.hasInfix "list_match:" config.services.flexget.config
+        && lib.hasInfix "imdb_lookup: yes" config.services.flexget.config
+        && lib.hasInfix "quality: 2160p" config.services.flexget.config
+        && lib.hasInfix "path: /srv/media/ssd0/library/movies" config.services.flexget.config
+        && lib.hasInfix "path: /srv/media/ssd1/library/tv" config.services.flexget.config
+        && builtins.any (
+          command: lib.hasInfix "flexget-prepare-secrets" command
+        ) config.systemd.services.flexget.serviceConfig.ExecStartPre
+        && builtins.any (
+          command: lib.hasInfix "flexget-set-web-password" command
+        ) config.systemd.services.flexget.serviceConfig.ExecStartPre
+        && builtins.elem "qbt-webui-proxy.service" config.systemd.services.flexget.requires
+        && builtins.elem "qbt-webui-proxy.service" config.systemd.services.flexget-runner.requires
+        && builtins.elem "/srv/app-data" config.systemd.services.flexget.unitConfig.RequiresMountsFor
+        && builtins.elem "/srv/media/ssd0" config.systemd.services.flexget-runner.unitConfig.RequiresMountsFor
+        && builtins.elem "/srv/media/ssd1" config.systemd.services.flexget-runner.unitConfig.RequiresMountsFor
         && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
         && config.services.qbittorrent.webuiPort == 8082
         && config.services.qbittorrent.torrentingPort == 6881
@@ -201,8 +199,6 @@ let
         && config.systemd.services.qbittorrent.serviceConfig.Restart == "on-failure"
         && config.systemd.services.qbittorrent.serviceConfig.RestartSec == 10
         && config.systemd.services.qbittorrent.serviceConfig.UMask == "0002"
-        && builtins.elem "CAP_DAC_READ_SEARCH"
-          config.systemd.services.arr-qbittorrent-sync.serviceConfig.CapabilityBoundingSet
         && builtins.any (
           command: lib.hasInfix "qbittorrent-webui-password" command
         ) config.systemd.services.qbittorrent.serviceConfig.ExecStartPre
@@ -220,26 +216,21 @@ let
         && lib.hasInfix "TCP:192.168.15.1:8082" config.systemd.services.qbt-webui-proxy.serviceConfig.ExecStart
         && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
         && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
-        && builtins.elem "qbittorrent.service" config.systemd.services.arr-qbittorrent-sync.after
-        && lib.hasInfix "arr-qbittorrent-sync" config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart
-        && config.systemd.services.arr-qbittorrent-sync.serviceConfig.TimeoutStartSec == 240
         && lib.all (
           entry: builtins.elem entry.mount config.systemd.services.${entry.service}.unitConfig.RequiresMountsFor
         ) [
           { service = "jellyfin"; mount = "/srv/media/ssd0"; }
           { service = "jellyfin"; mount = "/srv/media/ssd1"; }
-          { service = "sonarr"; mount = "/srv/media/ssd1"; }
-          { service = "radarr"; mount = "/srv/media/ssd0"; }
-          { service = "lidarr"; mount = "/srv/media/ssd1"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd0"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd1"; }
+          { service = "flexget"; mount = "/srv/app-data"; }
+          { service = "flexget-runner"; mount = "/srv/media/ssd0"; }
+          { service = "flexget-runner"; mount = "/srv/media/ssd1"; }
         ]
         && lib.all (user: config.users.users.${user}.group == "media") [
           "jellyfin"
-          "sonarr"
-          "radarr"
-          "lidarr"
           "qbittorrent"
+          "flexget"
         ]
         && config.services.home-assistant.enable
         && config.services.home-assistant.config.http.server_host == "0.0.0.0"
@@ -262,14 +253,17 @@ let
         && config.hardware.bluetooth.powerOnBoot
         && builtins.elem "CAP_NET_ADMIN" config.systemd.services.home-assistant.serviceConfig.CapabilityBoundingSet
         && builtins.elem "CAP_NET_RAW" config.systemd.services.home-assistant.serviceConfig.CapabilityBoundingSet
-        && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "0.0.0.0"
+        && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
+        && config.services.caddy.enable
+        && lib.hasInfix "reverse_proxy 127.0.0.1:8080" config.services.caddy.virtualHosts."http://balaur.home.arpa".extraConfig
         && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "0.0.0.0";
       message = "application services must be reachable from the LAN";
     }
     {
       assertion = lib.all hardened [
-        "arr-qbittorrent-sync"
+        "flexget"
+        "flexget-runner"
         "balaur-dashboard"
         "web-desktop-novnc"
       ];
@@ -284,11 +278,23 @@ if failures != [ ] then
     lib.concatMapStringsSep "\n" (failure: "- ${failure}") failures
   }"
 else
-  pkgs.runCommand "balaur-configuration-tests" { } ''
+  pkgs.runCommand "balaur-configuration-tests"
+    { nativeBuildInputs = [ config.services.flexget.package ]; }
+    ''
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
-    grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
-    grep --fixed-strings -- '--sync-categories' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
-    grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../arr-qbittorrent-sync.py}
+    printf '%s\n' ${lib.escapeShellArg config.services.flexget.config} \
+      | grep --fixed-strings -- "password: '{? qbittorrent.password ?}'"
+
+    mkdir flexget-check
+    cp ${testedFlexgetConfig} flexget-check/flexget.yml
+    printf '%s\n' \
+      '{"qbittorrent":{"password":"test"},"filelist":{"username":"test","passkey":"test"}}' \
+      > flexget-check/variables.yml
+    flexget -c "$PWD/flexget-check/flexget.yml" check
+    flexget -c "$PWD/flexget-check/flexget.yml" execute \
+      --tasks movies --learn --dump-config > flexget-effective
+    grep --fixed-strings -- 'interval: 15 minutes' flexget-effective
+    grep --fixed-strings -- 'remove_on_match: true' flexget-effective
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     printf '%s\n' ${lib.escapeShellArg config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart} \

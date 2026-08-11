@@ -138,14 +138,14 @@
     };
   };
 
-  # A dependency-free Node.js dashboard for host metrics and service links.
+  # Keep the dashboard private; Caddy exposes it on the standard HTTP port.
   systemd.services.balaur-dashboard = {
     description = "Balaur home dashboard";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
 
     environment = {
-      DASHBOARD_HOST = "0.0.0.0";
+      DASHBOARD_HOST = "127.0.0.1";
       DASHBOARD_PORT = "8080";
     };
 
@@ -178,5 +178,14 @@
       SystemCallArchitectures = "native";
       UMask = "0077";
     };
+  };
+
+  # One simple entry point for the dashboard; keep the other application ports
+  # unchanged until there is a concrete need for per-service hostnames.
+  services.caddy = {
+    enable = true;
+    virtualHosts."http://balaur.home.arpa".extraConfig = ''
+      reverse_proxy 127.0.0.1:8080
+    '';
   };
 }

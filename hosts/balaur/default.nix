@@ -9,6 +9,7 @@
     ../../modules/access.nix
     ../../modules/syncthing.nix
     ../../modules/media.nix
+    ../../modules/flexget.nix
     ../../modules/home-assistant.nix
     ../../modules/storage.nix
     ../../modules/backup.nix
