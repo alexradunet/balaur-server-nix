@@ -43,6 +43,11 @@ pkgs.runCommand "balaur-dashboard-tests"
     grep --fixed-strings 'serviceUrl(7681)' index.html
     grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
     grep --fixed-strings 'FastFlowLM' index.html
+    grep --fixed-strings '<h3 id="home-services">Home</h3>' index.html
+    grep --fixed-strings '<h3 id="media-services">Media</h3>' index.html
+    grep --fixed-strings '<h3 id="file-services">Downloads &amp; Files</h3>' index.html
+    grep --fixed-strings '<h3 id="tool-services">Tools &amp; Compute</h3>' index.html
+    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 14
     grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
     grep --fixed-strings 'data.disks.map' index.html
 

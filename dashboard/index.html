@@ -47,9 +47,13 @@
       .disk-head { display: flex; justify-content: space-between; gap: 12px; }
       .disk-path { color: var(--muted); font-size: 11px; }
       .disk.unmounted .value { color: var(--offline); }
+      .service-category + .service-category { margin-top: 30px; }
+      .service-category h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
       .services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
       .service { display: flex; align-items: center; justify-content: space-between; min-height: 86px; padding: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; transition: border-color .15s, transform .15s; }
       .service:hover { border-color: var(--accent); transform: translateY(-2px); }
+      .service-info { display: flex; align-items: center; min-width: 0; }
+      .service-icon { width: 36px; margin-right: 12px; font-size: 24px; line-height: 1; text-align: center; }
       .service small { color: var(--muted); }
       .status { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
       .status.online { background: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
@@ -83,21 +87,42 @@
       <section class="disks" id="disks"></section>
 
       <h2>Services</h2>
-      <section class="services">
-        <a class="service" id="home-assistant"><span>Home Assistant<br><small>Home automation</small></span><i class="status"></i></a>
-        <a class="service" id="jellyfin"><span>Jellyfin<br><small>Media server</small></span><i class="status"></i></a>
-        <a class="service" id="prowlarr"><span>Prowlarr<br><small>Indexer manager</small></span><i class="status"></i></a>
-        <a class="service" id="sonarr"><span>Sonarr<br><small>TV management</small></span><i class="status"></i></a>
-        <a class="service" id="radarr"><span>Radarr<br><small>Movie management</small></span><i class="status"></i></a>
-        <a class="service" id="lidarr"><span>Lidarr<br><small>Music management</small></span><i class="status"></i></a>
-        <a class="service" id="readarr"><span>Readarr<br><small>Book management</small></span><i class="status"></i></a>
-        <a class="service" id="whisparr"><span>Whisparr<br><small>Media management</small></span><i class="status"></i></a>
-        <a class="service" id="bazarr"><span>Bazarr<br><small>Subtitle management</small></span><i class="status"></i></a>
-        <a class="service" id="qbittorrent"><span>qBittorrent<br><small>Download client</small></span><i class="status"></i></a>
-        <a class="service" id="syncthing"><span>Syncthing<br><small>File sync</small></span><i class="status"></i></a>
-        <a class="service" id="desktop"><span>Web Desktop<br><small>XFCE via noVNC</small></span><i class="status"></i></a>
-        <a class="service" id="herdr"><span>Herdr<br><small>Agent terminal</small></span><i class="status"></i></a>
-        <a class="service" id="fastflowlm"><span>FastFlowLM<br><small>Gemma 4 on Ryzen AI NPU</small></span><i class="status"></i></a>
+      <section class="service-category" aria-labelledby="home-services">
+        <h3 id="home-services">Home</h3>
+        <div class="services">
+          <a class="service" id="home-assistant"><span class="service-info"><span class="service-icon" aria-hidden="true">🏠</span><span>Home Assistant<br><small>Home automation</small></span></span><i class="status"></i></a>
+        </div>
+      </section>
+
+      <section class="service-category" aria-labelledby="media-services">
+        <h3 id="media-services">Media</h3>
+        <div class="services">
+          <a class="service" id="jellyfin"><span class="service-info"><span class="service-icon" aria-hidden="true">🎬</span><span>Jellyfin<br><small>Media server</small></span></span><i class="status"></i></a>
+          <a class="service" id="prowlarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🧭</span><span>Prowlarr<br><small>Indexer manager</small></span></span><i class="status"></i></a>
+          <a class="service" id="sonarr"><span class="service-info"><span class="service-icon" aria-hidden="true">📺</span><span>Sonarr<br><small>TV management</small></span></span><i class="status"></i></a>
+          <a class="service" id="radarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🎞️</span><span>Radarr<br><small>Movie management</small></span></span><i class="status"></i></a>
+          <a class="service" id="lidarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🎵</span><span>Lidarr<br><small>Music management</small></span></span><i class="status"></i></a>
+          <a class="service" id="readarr"><span class="service-info"><span class="service-icon" aria-hidden="true">📚</span><span>Readarr<br><small>Book management</small></span></span><i class="status"></i></a>
+          <a class="service" id="whisparr"><span class="service-info"><span class="service-icon" aria-hidden="true">🔞</span><span>Whisparr<br><small>Media management</small></span></span><i class="status"></i></a>
+          <a class="service" id="bazarr"><span class="service-info"><span class="service-icon" aria-hidden="true">💬</span><span>Bazarr<br><small>Subtitle management</small></span></span><i class="status"></i></a>
+        </div>
+      </section>
+
+      <section class="service-category" aria-labelledby="file-services">
+        <h3 id="file-services">Downloads &amp; Files</h3>
+        <div class="services">
+          <a class="service" id="qbittorrent"><span class="service-info"><span class="service-icon" aria-hidden="true">⬇️</span><span>qBittorrent<br><small>Download client</small></span></span><i class="status"></i></a>
+          <a class="service" id="syncthing"><span class="service-info"><span class="service-icon" aria-hidden="true">🔄</span><span>Syncthing<br><small>File sync</small></span></span><i class="status"></i></a>
+        </div>
+      </section>
+
+      <section class="service-category" aria-labelledby="tool-services">
+        <h3 id="tool-services">Tools &amp; Compute</h3>
+        <div class="services">
+          <a class="service" id="desktop"><span class="service-info"><span class="service-icon" aria-hidden="true">🖥️</span><span>Web Desktop<br><small>XFCE via noVNC</small></span></span><i class="status"></i></a>
+          <a class="service" id="herdr"><span class="service-info"><span class="service-icon" aria-hidden="true">🤖</span><span>Herdr<br><small>Agent terminal</small></span></span><i class="status"></i></a>
+          <a class="service" id="fastflowlm"><span class="service-info"><span class="service-icon" aria-hidden="true">🧠</span><span>FastFlowLM<br><small>Gemma 4 on Ryzen AI NPU</small></span></span><i class="status"></i></a>
+        </div>
       </section>
       <p id="error">Host status is temporarily unavailable.</p>
     </main>
