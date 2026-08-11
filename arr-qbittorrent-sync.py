@@ -171,7 +171,9 @@ def sync_qbittorrent_categories(password: str, timeout: int) -> None:
                 "auth/login",
                 form={"username": "admin", "password": password},
             )
-            if response.strip() != b"Ok.":
+            # qBittorrent 5.1 may return either the legacy `200 Ok.` body or
+            # a bodyless 204 response for a successful login.
+            if response.strip() not in (b"", b"Ok."):
                 raise RuntimeError("qBittorrent rejected the managed credential")
             break
         except (OSError, RuntimeError) as error:
