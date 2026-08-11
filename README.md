@@ -2,6 +2,20 @@
 
 NixOS configuration for `balaur`, a LAN-accessible development host managed over SSH.
 
+## Repository structure
+
+The configuration follows a feature-oriented, incremental version of the
+[dendritic pattern](https://discourse.nixos.org/t/the-dendritic-pattern/61271):
+NixOS modules live under `modules/` and are organized by capability rather than
+by host or service layer. `hosts/balaur/` only composes the features and keeps
+the generated hardware module and installed-host identity together. Standalone
+package expressions live under `packages/`; they are intentionally kept out of
+the module tree.
+
+This keeps the current single-host flake simple while making features reusable
+when another host is added. A full flake-parts/import-tree top-level module tree
+can be introduced later if the repository grows beyond this host.
+
 ## Deploy
 
 Apply the configuration from the repository root:

@@ -26,11 +26,11 @@
         inherit system;
         config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "fastflowlm";
       };
-      fastFlowLMPackage = pkgs.callPackage ./fastflowlm.nix { };
+      fastFlowLMPackage = pkgs.callPackage ./packages/fastflowlm.nix { };
       herdrPackage = herdr.packages.${system}.default;
       piPackage = pi.packages.${system}.coding-agent;
-      piSubagentsPackage = pkgs.callPackage ./pi-subagents.nix { };
-      piWebAccessPackage = pkgs.callPackage ./pi-web-access.nix { };
+      piSubagentsPackage = pkgs.callPackage ./packages/pi-subagents.nix { };
+      piWebAccessPackage = pkgs.callPackage ./packages/pi-web-access.nix { };
     in
     {
       packages.${system} = {
@@ -40,11 +40,12 @@
 
       nixosConfigurations.balaur = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit herdrPackage piPackage; };
+        specialArgs = {
+          inherit fastFlowLMPackage herdrPackage piPackage piSubagentsPackage piWebAccessPackage;
+        };
         modules = [
-          ./hardware-configuration.nix
           nixarr.nixosModules.default
-          ./configuration.nix
+          ./hosts/balaur/default.nix
         ];
       };
 
