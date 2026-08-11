@@ -51,8 +51,9 @@ Confirm both EFI boot paths remain usable and that FastFlowLM still reports
 
 ### 4. Decide authentication for LAN services
 
-Herdr and noVNC are now loopback-only and accessed through SSH tunnels. The
-following services still rely on the trusted-LAN boundary:
+The Herdr web terminal and noVNC gateway have been removed. Herdr is accessed
+as a CLI over SSH, while native VNC access is tunnelled over SSH. The following
+services still rely on the trusted-LAN boundary:
 
 - FastFlowLM has no API authentication.
 - The dashboard is HTTP-only and unauthenticated.
@@ -97,7 +98,7 @@ Current checks primarily evaluate configuration and run the dashboard in
 isolation. Add NixOS VM or host-level tests for:
 
 - interface-scoped firewall rules
-- loopback-only Herdr/noVNC listeners
+- absence of Herdr/noVNC web listeners and loopback-only raw VNC access
 - missing storage mount behavior
 - qBittorrent VPN and proxy readiness
 - backup mount/unmount cleanup
@@ -151,8 +152,8 @@ changes.
 
 ## Completed review actions
 
-- Herdr and noVNC changed to loopback-only access.
-- SSH tunnel instructions documented.
+- Herdr web terminal and noVNC gateway removed.
+- SSH and native VNC tunnel instructions documented.
 - FastFlowLM now requires `/srv/app-data`.
 - Syncthing global discovery, relays, and NAT traversal disabled.
 - Firewall and SSH access scoped to trusted LAN interfaces.

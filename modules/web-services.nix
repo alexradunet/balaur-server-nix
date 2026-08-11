@@ -1,9 +1,9 @@
-{ herdrPackage, pkgs, ... }:
+{ pkgs, ... }:
 
 {
-  # Xvnc provides a persistent virtual X display alongside the local XFCE session.
+  # Xvnc provides a persistent virtual X display for native VNC clients over SSH.
   systemd.services.web-desktop-vnc = {
-    description = "Web desktop VNC server";
+    description = "Remote desktop VNC server";
     after = [ "network.target" ];
     wantedBy = [ "multi-user.target" ];
 
@@ -38,7 +38,7 @@
   };
 
   systemd.services.web-desktop-session = {
-    description = "Web desktop XFCE session";
+    description = "Remote desktop XFCE session";
     requires = [ "web-desktop-vnc.service" ];
     after = [ "web-desktop-vnc.service" ];
     partOf = [ "web-desktop-vnc.service" ];
@@ -74,71 +74,34 @@
     };
   };
 
-  systemd.services.web-desktop-novnc = {
-    description = "Web desktop noVNC gateway";
-    requires = [ "web-desktop-vnc.service" ];
-    after = [ "web-desktop-vnc.service" ];
-    partOf = [ "web-desktop-vnc.service" ];
-    wantedBy = [ "multi-user.target" ];
-    path = [ pkgs.procps ];
+  # Open WebUI provides the authenticated chat interface while FastFlowLM stays
+  # on the host-local OpenAI-compatible API path used by the UI.
+  services.open-webui = {
+    enable = true;
+    host = "127.0.0.1";
+    port = 3000;
+    openFirewall = false;
 
-    serviceConfig = {
-      DynamicUser = true;
-      # The desktop runs as alex and has no application authentication. Keep the
-      # gateway loopback-only; use an SSH tunnel for remote access.
-      ExecStart = "${pkgs.novnc}/bin/novnc --listen 127.0.0.1:6080 --vnc 127.0.0.1:5910 --file-only";
-      Restart = "on-failure";
-      RestartSec = 5;
-
-      CapabilityBoundingSet = "";
-      LockPersonality = true;
-      NoNewPrivileges = true;
-      PrivateDevices = true;
-      PrivateTmp = true;
-      ProtectClock = true;
-      ProtectControlGroups = true;
-      ProtectHome = true;
-      ProtectHostname = true;
-      ProtectKernelLogs = true;
-      ProtectKernelModules = true;
-      ProtectKernelTunables = true;
-      ProtectSystem = "strict";
-      RestrictAddressFamilies = [
-        "AF_INET"
-        "AF_INET6"
-        "AF_UNIX"
-      ];
-      RestrictNamespaces = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
+    environment = {
+      SCARF_NO_ANALYTICS = "True";
+      DO_NOT_TRACK = "True";
+      ANONYMIZED_TELEMETRY = "False";
+      ENABLE_OLLAMA_API = "False";
+      ENABLE_OPENAI_API = "True";
+      OPENAI_API_BASE_URLS = "http://127.0.0.1:8081/v1";
+      # FastFlowLM does not authenticate, but Open WebUI expects one key per endpoint.
+      OPENAI_API_KEYS = "fastflowlm";
+      DEFAULT_MODELS = "qwen3.6-moe:35b-a3b";
+      ENABLE_SIGNUP = "False";
+      WEBUI_NAME = "Balaur AI";
+      WEBUI_URL = "http://balaur.home.arpa:8083";
+      CORS_ALLOW_ORIGIN = "http://balaur.home.arpa:8083";
     };
   };
 
-  # ttyd exposes Herdr's terminal UI without changing its persistent session model.
-  systemd.services.herdr-web = {
-    description = "Herdr web terminal";
-    after = [ "network.target" ];
-    wantedBy = [ "multi-user.target" ];
-
-    environment = {
-      # Herdr is an administrative shell as alex; expose it only through an SSH tunnel.
-      HERDR_WEB_LISTEN = "127.0.0.1";
-      HERDR_WEB_PORT = "7681";
-      HOME = "/home/alex";
-      SHELL = "${pkgs.bashInteractive}/bin/bash";
-    };
-
-    serviceConfig = {
-      User = "alex";
-      Group = "users";
-      WorkingDirectory = "/home/alex";
-      ExecStart = pkgs.writeShellScript "herdr-web" ''
-        export PATH="/home/alex/.nix-profile/bin:/home/alex/.local/state/nix/profile/bin:/etc/profiles/per-user/alex/bin:/run/current-system/sw/bin:/run/wrappers/bin:$PATH"
-        exec ${pkgs.ttyd}/bin/ttyd --interface "$HERDR_WEB_LISTEN" --port "$HERDR_WEB_PORT" --writable --check-origin ${herdrPackage}/bin/herdr
-      '';
-      Restart = "on-failure";
-      RestartSec = 5;
-    };
+  systemd.services.open-webui = {
+    wants = [ "fastflowlm.service" ];
+    after = [ "fastflowlm.service" ];
   };
 
   # Keep the dashboard private; Caddy exposes it on the standard HTTP port.
@@ -189,6 +152,9 @@
     enable = true;
     virtualHosts."http://balaur.home.arpa".extraConfig = ''
       reverse_proxy 127.0.0.1:8080
+    '';
+    virtualHosts."http://balaur.home.arpa:8083".extraConfig = ''
+      reverse_proxy 127.0.0.1:3000
     '';
   };
 }

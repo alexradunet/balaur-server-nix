@@ -104,9 +104,11 @@ let
         && config.networking.firewall.interfaces.enp100s0.allowedTCPPorts == [
           22
           80
+          5230
           7878
           8081
           8082
+          8083
           8096
           8123
           8383
@@ -251,6 +253,30 @@ let
           "radarr"
           "qbittorrent"
         ]
+        && config.services.memos.enable
+        && config.services.memos.dataDir == "/srv/app-data/memos"
+        && !config.services.memos.openFirewall
+        && config.services.memos.settings.MEMOS_MODE == "prod"
+        && config.services.memos.settings.MEMOS_ADDR == "0.0.0.0"
+        && config.services.memos.settings.MEMOS_PORT == "5230"
+        && config.services.memos.settings.MEMOS_DATA == "/srv/app-data/memos"
+        && config.services.memos.settings.MEMOS_DRIVER == "sqlite"
+        && config.services.memos.settings.MEMOS_INSTANCE_URL == "http://balaur.home.arpa:5230"
+        && config.systemd.services.memos.unitConfig.RequiresMountsFor == [ "/srv/app-data" ]
+        && config.services.open-webui.enable
+        && config.services.open-webui.host == "127.0.0.1"
+        && config.services.open-webui.port == 3000
+        && config.services.open-webui.stateDir == "/var/lib/open-webui"
+        && !config.services.open-webui.openFirewall
+        && config.services.open-webui.environment.ENABLE_OLLAMA_API == "False"
+        && config.services.open-webui.environment.ENABLE_OPENAI_API == "True"
+        && config.services.open-webui.environment.OPENAI_API_BASE_URLS == "http://127.0.0.1:8081/v1"
+        && config.services.open-webui.environment.OPENAI_API_KEYS == "fastflowlm"
+        && config.services.open-webui.environment.DEFAULT_MODELS == "qwen3.6-moe:35b-a3b"
+        && config.services.open-webui.environment.ENABLE_SIGNUP == "False"
+        && config.services.open-webui.environment.ANONYMIZED_TELEMETRY == "False"
+        && builtins.elem "fastflowlm.service" config.systemd.services.open-webui.wants
+        && builtins.elem "fastflowlm.service" config.systemd.services.open-webui.after
         && config.services.home-assistant.enable
         && config.services.home-assistant.config.http.server_host == "0.0.0.0"
         && config.services.home-assistant.config.http.server_port == 8123
@@ -276,15 +302,15 @@ let
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
         && config.services.caddy.enable
         && lib.hasInfix "reverse_proxy 127.0.0.1:8080" config.services.caddy.virtualHosts."http://balaur.home.arpa".extraConfig
-        && config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN == "127.0.0.1"
-        && lib.hasInfix "--listen 127.0.0.1:6080" config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart;
-      message = "application services must be reachable from the LAN";
+        && lib.hasInfix "reverse_proxy 127.0.0.1:3000" config.services.caddy.virtualHosts."http://balaur.home.arpa:8083".extraConfig
+        && !(builtins.hasAttr "herdr-web" config.systemd.services)
+        && !(builtins.hasAttr "web-desktop-novnc" config.systemd.services);
+      message = "application access controls and dashboard routing must remain stable";
     }
     {
       assertion = lib.all hardened [
         "arr-qbittorrent-sync"
         "balaur-dashboard"
-        "web-desktop-novnc"
       ];
       message = "network-facing custom services must retain their systemd sandboxing";
     }
@@ -301,15 +327,12 @@ else
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '--exclude /srv/app-data/fastflowlm/models' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '/var/lib/hass' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    grep --fixed-strings -- '/var/lib/open-webui' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '--sync-categories' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../arr-qbittorrent-sync.py}
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
-    printf '%s\n' ${lib.escapeShellArg config.systemd.services.web-desktop-novnc.serviceConfig.ExecStart} \
-      | grep --fixed-strings -- '--listen 127.0.0.1:6080'
-    printf '%s\n' ${lib.escapeShellArg config.systemd.services.herdr-web.environment.HERDR_WEB_LISTEN} \
-      | grep --fixed-strings -- '127.0.0.1'
     mkdir -p "$out"
     printf '%s\n' 'All ${toString (builtins.length assertions)} configuration invariants passed.' > "$out/result"
   ''

@@ -56,6 +56,7 @@
           /srv/app-data \
           /srv/personal \
           /var/lib/hass \
+          /var/lib/open-webui \
           /srv/secrets || backup_status=$?
 
         # Borg uses status 1 for warnings such as a file changing during backup.

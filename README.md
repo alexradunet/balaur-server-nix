@@ -189,40 +189,44 @@ managed `alex@yoga-laptop` Ed25519 key; password authentication, root login,
 keyboard-interactive authentication, and X11 forwarding are disabled.
 
 The dashboard is available on the LAN at `http://balaur.home.arpa`; Caddy
-forwards the standard HTTP port to the private dashboard process. The Herdr
-terminal and web desktop are administrative interfaces and are loopback-only;
-access them through an SSH tunnel instead of exposing them to the LAN. The
-router must not forward any service ports from the internet.
+forwards the standard HTTP port to the private dashboard process. Administrative
+access is deliberately absent from the dashboard: Herdr has no web terminal,
+and the remote desktop has no noVNC gateway. The router must not forward any
+service ports from the internet.
 
-Create a tunnel for the administrative interfaces:
+Run Herdr directly over SSH:
 
 ```sh
-ssh -N \\
-  -L 6080:127.0.0.1:6080 \\
-  -L 7681:127.0.0.1:7681 \\
-  alex@balaur.home.arpa
+ssh -t alex@balaur.home.arpa herdr
 ```
 
-Open `http://localhost:6080/vnc.html?autoconnect=1&resize=remote` for the web
-desktop or `http://localhost:7681` for Herdr. The dashboard links to these
-services work when the dashboard itself is opened through a matching local
-SSH tunnel.
+For the remote desktop, tunnel the loopback-only VNC server over SSH:
+
+```sh
+ssh -N -L 5910:127.0.0.1:5910 alex@balaur.home.arpa
+```
+
+Then configure a native VNC client to connect to `localhost` on port `5910`.
+The SSH tunnel supplies authentication and encryption; do not expose the VNC
+port directly.
 
 ## Local Services
 
 The dashboard monitors Home Assistant, Jellyfin, Prowlarr, Sonarr, Radarr,
-qBittorrent, Syncthing, the web desktop, Herdr, and FastFlowLM. Their service addresses include:
+qBittorrent, Syncthing, Memos, Open WebUI, and FastFlowLM. Their service addresses include:
 
 - Dashboard: `http://balaur.home.arpa`
 - Home Assistant: `http://balaur.home.arpa:8123`
+- Memos: `http://balaur.home.arpa:5230` (LAN-only)
 - Jellyfin: `http://balaur.home.arpa:8096`
 - Prowlarr: `http://balaur.home.arpa:9696`
 - Sonarr: `http://balaur.home.arpa:8989`
 - Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
 - Syncthing: `http://balaur.home.arpa:8383` (LAN-only)
-- Web desktop: use the SSH tunnel above, then open `http://localhost:6080`
-- Herdr: use the SSH tunnel above, then open `http://localhost:7681`
+- Balaur AI (Open WebUI): `http://balaur.home.arpa:8083` (LAN-only)
+- Remote desktop: use the SSH tunnel above and a native VNC client on `localhost:5910`
+- Herdr: run `ssh -t alex@balaur.home.arpa herdr`
 - FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
 
 Jellyfin uses `/srv/media/ssd0/library/movies` and
@@ -253,6 +257,23 @@ the VPN. Its stable `admin` password is generated outside the Nix store and can
 be read with `sudo cat /srv/secrets/qbittorrent-webui-password`; the boot-time
 synchronization service installs that credential in Sonarr and Radarr.
 
+Memos stores its SQLite database and uploaded attachments in
+`/srv/app-data/memos`, which is included in the encrypted USB Borg backup. On
+first launch, create the administrator account, add the second member under
+Memos settings, then disable user registration and public memos. Use
+**Protected** visibility for posts intended for the shared signed-in feed. Keep
+port 5230 LAN-only; use a separately secured VPN rather than router port
+forwarding for access away from home.
+
+Open WebUI provides the authenticated Balaur AI chat interface on port 8083 and
+uses FastFlowLM's loopback OpenAI-compatible endpoint. On first launch, create
+the owner account; the pinned Open WebUI version permits this bootstrap account
+while declarative configuration keeps subsequent public signup disabled. Its
+chat history, users, uploaded documents, embedding cache, and generated secret
+key live under `/var/lib/open-webui`, which is included in the encrypted USB
+Borg backup. Open WebUI is loopback-only behind Caddy, and its telemetry is
+disabled. Keep port 8083 LAN-only and use a secured VPN for remote access.
+
 Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to
 `services.home-assistant.extraComponents` before configuring it in the UI. Wiz,
@@ -280,14 +301,15 @@ curl http://127.0.0.1:8081/v1/chat/completions \
 
 FastFlowLM has no API authentication. Keep port 8081 LAN-only and do not forward it from the router. The obsolete llama.cpp GGUF cache under `/var/cache/llama-cpp` is not used and may be deleted manually after confirming FastFlowLM works.
 
-Herdr remains available as the `herdr` CLI. Its web endpoint runs the same terminal UI as the `alex` user, so it shares the CLI's persistent sessions and development environment.
+Herdr remains available as the `herdr` CLI and shares its persistent sessions
+and development environment when run through SSH. No writable web terminal is
+started.
 
-**Security:** noVNC and the writable Herdr terminal have no additional
-application authentication, so they listen only on loopback (`127.0.0.1`).
-They are not reachable directly from the LAN. The SSH tunnel above forwards
-your local `localhost` ports to those server-local services; keep SSH keys
-protected and do not configure router port forwarding for these interfaces.
+**Security:** the noVNC gateway and Herdr web terminal are not configured. The
+raw TigerVNC server listens only on loopback (`127.0.0.1`) and is reachable
+remotely only through the authenticated, encrypted SSH tunnel above. Keep SSH
+keys protected and do not configure router port forwarding for administrative
+interfaces.
 
-XFCE is the host's principal local desktop and starts through LightDM. The web
-desktop uses a separate persistent TigerVNC display with an XFCE session; both
-the raw VNC server and noVNC gateway are loopback-only.
+XFCE is the host's principal local desktop and starts through LightDM. Remote
+access uses a separate persistent TigerVNC display with an XFCE session.

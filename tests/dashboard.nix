@@ -29,19 +29,25 @@ pkgs.runCommand "balaur-dashboard-tests"
       grep --ignore-case '^x-frame-options: DENY' headers
     grep --fixed-strings '<title>balaur</title>' index.html
     grep --fixed-strings 'serviceUrl(8123)' index.html
+    grep --fixed-strings 'serviceUrl(5230)' index.html
     grep --fixed-strings 'serviceUrl(8096)' index.html
     grep --fixed-strings 'serviceUrl(9696)' index.html
     grep --fixed-strings 'serviceUrl(8989)' index.html
     grep --fixed-strings 'serviceUrl(7878)' index.html
     grep --fixed-strings 'serviceUrl(8082)' index.html
     grep --fixed-strings 'serviceUrl(8383)' index.html
-    grep --fixed-strings 'serviceUrl(6080, "/vnc.html?autoconnect=1&resize=remote")' index.html
-    grep --fixed-strings 'serviceUrl(7681)' index.html
+    grep --fixed-strings 'serviceUrl(8083)' index.html
+    ! grep --fixed-strings 'id="desktop"' index.html
+    ! grep --fixed-strings 'id="herdr"' index.html
+    ! grep --fixed-strings 'serviceUrl(6080' index.html
+    ! grep --fixed-strings 'serviceUrl(7681' index.html
     grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
     grep --fixed-strings 'Prowlarr' index.html
     grep --fixed-strings 'Sonarr' index.html
     grep --fixed-strings 'Radarr' index.html
     grep --fixed-strings 'FastFlowLM' index.html
+    grep --fixed-strings 'Balaur AI' index.html
+    grep --fixed-strings 'Memos' index.html
     grep --fixed-strings '<h3 id="home-services">Home</h3>' index.html
     grep --fixed-strings '<h3 id="media-services">Media</h3>' index.html
     grep --fixed-strings '<h3 id="file-services">Downloads &amp; Files</h3>' index.html
@@ -63,7 +69,7 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.disks[0].total > 0)
         and ([.disks[].mounted] | all(type == "boolean"))
         and (.services | length == 10)
-        and ([.services[].id] == ["home-assistant", "jellyfin", "prowlarr", "sonarr", "radarr", "qbittorrent", "syncthing", "desktop", "herdr", "fastflowlm"])
+        and ([.services[].id] == ["home-assistant", "memos", "jellyfin", "prowlarr", "sonarr", "radarr", "qbittorrent", "syncthing", "open-webui", "fastflowlm"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 
