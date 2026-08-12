@@ -8,13 +8,7 @@ let
     let
       serviceConfig = config.systemd.services.${service}.serviceConfig;
     in
-    serviceConfig.CapabilityBoundingSet
-      == (
-        if service == "arr-qbittorrent-sync" then
-          [ "CAP_DAC_READ_SEARCH" ]
-        else
-          ""
-      )
+    serviceConfig.CapabilityBoundingSet == ""
     && serviceConfig.NoNewPrivileges
     && serviceConfig.PrivateDevices
     && serviceConfig.PrivateTmp
@@ -82,8 +76,42 @@ let
           == "passphrase:/var/lib/balaur-backup/passphrase"
         &&
           config.systemd.services.balaur-backup.unitConfig.ConditionPathExists
-          == "/dev/disk/by-label/BALAUR_BACKUP";
+          == "/dev/disk/by-label/BALAUR_BACKUP"
+        && lib.all (
+          mount: builtins.elem mount config.systemd.services.balaur-backup.unitConfig.RequiresMountsFor
+        ) [
+          "/srv/app-data"
+          "/srv/personal"
+        ];
       message = "the encrypted USB backup must remain offline by default and use protected credentials";
+    }
+    {
+      assertion =
+        config.services.trilium-server.enable
+        && config.services.trilium-server.package.version == "0.102.2"
+        && config.services.trilium-server.dataDir == "/srv/app-data/trilium"
+        && config.services.trilium-server.instanceName == "Trilium"
+        && !config.services.trilium-server.noBackup
+        && !config.services.trilium-server.noAuthentication
+        && config.services.trilium-server.host == "127.0.0.1"
+        && config.services.trilium-server.port == 11000
+        && config.systemd.services.trilium-server.unitConfig.RequiresMountsFor == [ "/srv/app-data" ]
+        && config.systemd.services.trilium-server.serviceConfig.NoNewPrivileges
+        && config.systemd.services.trilium-server.serviceConfig.ProtectSystem == "strict"
+        && config.systemd.services.trilium-server.serviceConfig.ReadWritePaths == [ "/srv/app-data/trilium" ]
+        && lib.hasInfix
+          "reverse_proxy 127.0.0.1:11000"
+          config.services.caddy.virtualHosts."http://balaur.home.arpa:8084".extraConfig
+        && !config.services.nextcloud.enable
+        && !config.services.postgresql.enable
+        && !(config.services.redis.servers ? nextcloud)
+        && !config.services.nginx.enable
+        && !(config.fileSystems ? "/srv/app-data/nextcloud/data")
+        && !builtins.any (
+          package: lib.getName package == "obsidian"
+        ) config.environment.systemPackages
+        && !builtins.elem 11000 config.networking.firewall.interfaces.enp100s0.allowedTCPPorts;
+      message = "Trilium must replace the Nextcloud stack behind the existing LAN endpoint";
     }
     {
       assertion =
@@ -105,21 +133,15 @@ let
           22
           80
           5230
-          7878
           8081
           8082
           8083
+          8084
           8096
           8123
-          8383
-          8989
           9696
-          22000
         ]
-        && config.networking.firewall.interfaces.enp100s0.allowedUDPPorts == [
-          21027
-          22000
-        ]
+        && config.networking.firewall.interfaces.enp100s0.allowedUDPPorts == [ ]
         && config.networking.firewall.interfaces.wlp98s0.allowedTCPPorts
           == config.networking.firewall.interfaces.enp100s0.allowedTCPPorts
         && config.networking.firewall.interfaces.wlp98s0.allowedUDPPorts
@@ -147,22 +169,7 @@ let
         && builtins.elem "render" config.users.users.fastflowlm.extraGroups
         && builtins.elem "amdxdna" config.boot.kernelModules
         && lib.versionAtLeast config.boot.kernelPackages.kernel.version "7.0"
-        && config.services.syncthing.guiAddress == "0.0.0.0:8383"
-        && !config.services.syncthing.openDefaultPorts
-        && config.services.syncthing.settings.options.globalAnnounceEnabled == false
-        && config.services.syncthing.settings.options.localAnnounceEnabled
-        && config.services.syncthing.settings.options.natEnabled == false
-        && config.services.syncthing.settings.options.relaysEnabled == false
-        && config.services.syncthing.settings.options.listenAddresses == [
-          "tcp://192.168.50.13:22000"
-          "quic://192.168.50.13:22000"
-        ]
-        && !config.services.syncthing.overrideDevices
-        && !config.services.syncthing.overrideFolders
-        && config.services.syncthing.settings.folders.personal.path == "/srv/personal"
-        && config.services.syncthing.settings.folders.personal.type == "sendreceive"
-        && config.services.syncthing.settings.folders.personal.ignorePatterns == [ "/lost+found" ]
-        && config.systemd.services.syncthing.unitConfig.RequiresMountsFor == [ "/srv/personal" ]
+        && !config.services.syncthing.enable
         && config.nixarr.enable
         && config.nixarr.mediaDir == "/srv/media/ssd0"
         && config.nixarr.stateDir == "/srv/app-data"
@@ -175,16 +182,14 @@ let
           "qbittorrent"
         ]
         && config.users.users.prowlarr.uid == 986
-        && config.users.users.sonarr.uid == 274
-        && config.users.users.radarr.uid == 275
         && lib.all (service: config.nixarr.${service}.enable) [
           "jellyfin"
           "prowlarr"
-          "sonarr"
-          "radarr"
           "qbittorrent"
         ]
-        && config.nixarr.prowlarr.settings-sync.enable-nixarr-apps
+        && !config.nixarr.sonarr.enable
+        && !config.nixarr.radarr.enable
+        && !config.nixarr.prowlarr.settings-sync.enable-nixarr-apps
         && !config.nixarr.lidarr.enable
         && !config.services.seerr.enable
         && config.nixarr.jellyfin.stateDir == "/srv/app-data/jellyfin"
@@ -193,12 +198,11 @@ let
         && config.services.jellyfin.logDir == "/srv/app-data/jellyfin/log"
         && config.nixarr.prowlarr.stateDir == "/srv/app-data/prowlarr"
         && !config.systemd.services.prowlarr.serviceConfig.DynamicUser
-        && config.nixarr.sonarr.stateDir == "/srv/app-data/sonarr"
-        && config.nixarr.radarr.stateDir == "/srv/app-data/radarr"
         && config.services.prowlarr.settings.auth.required == "DisabledForLocalAddresses"
-        && config.services.sonarr.settings.auth.required == "DisabledForLocalAddresses"
-        && config.services.radarr.settings.auth.required == "DisabledForLocalAddresses"
         && config.services.qbittorrent.profileDir == "/srv/app-data/qbittorrent"
+        && !builtins.elem
+          "d /srv/media/ssd0/downloads/complete/manual 2775 qbittorrent media -"
+          config.systemd.tmpfiles.rules
         && config.services.qbittorrent.webuiPort == 8082
         && config.services.qbittorrent.torrentingPort == 6881
         &&
@@ -213,8 +217,7 @@ let
         && config.systemd.services.qbittorrent.serviceConfig.Restart == "on-failure"
         && config.systemd.services.qbittorrent.serviceConfig.RestartSec == 10
         && config.systemd.services.qbittorrent.serviceConfig.UMask == "0002"
-        && builtins.elem "CAP_DAC_READ_SEARCH"
-          config.systemd.services.arr-qbittorrent-sync.serviceConfig.CapabilityBoundingSet
+        && config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.CapabilityBoundingSet == ""
         && builtins.any (
           command: lib.hasInfix "qbittorrent-webui-password" command
         ) config.systemd.services.qbittorrent.serviceConfig.ExecStartPre
@@ -232,25 +235,26 @@ let
         && lib.hasInfix "TCP:192.168.15.1:8082" config.systemd.services.qbt-webui-proxy.serviceConfig.ExecStart
         && !builtins.elem 6881 config.networking.firewall.allowedTCPPorts
         && !builtins.elem 6881 config.networking.firewall.allowedUDPPorts
-        && builtins.elem "qbt-webui-proxy.service" config.systemd.services.arr-qbittorrent-sync.after
-        && builtins.elem "sonarr.service" config.systemd.services.arr-qbittorrent-sync.after
-        && builtins.elem "radarr.service" config.systemd.services.arr-qbittorrent-sync.after
-        && config.systemd.services.arr-qbittorrent-sync.serviceConfig.TimeoutStartSec == 240
+        && builtins.elem "qbt-webui-proxy.service" config.systemd.services.prowlarr-qbittorrent-sync.after
+        && builtins.elem "prowlarr.service" config.systemd.services.prowlarr-qbittorrent-sync.after
+        && config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.TimeoutStartSec == 240
+        && config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.LoadCredential == [
+          "qbittorrent-password:/srv/secrets/qbittorrent-webui-password"
+          "prowlarr-config:/srv/app-data/prowlarr/config.xml"
+        ]
         && lib.all (
           entry: builtins.elem entry.mount config.systemd.services.${entry.service}.unitConfig.RequiresMountsFor
         ) [
           { service = "jellyfin"; mount = "/srv/media/ssd0"; }
           { service = "jellyfin"; mount = "/srv/media/ssd1"; }
           { service = "prowlarr"; mount = "/srv/app-data"; }
-          { service = "sonarr"; mount = "/srv/media/ssd1"; }
-          { service = "radarr"; mount = "/srv/media/ssd0"; }
           { service = "qbittorrent"; mount = "/srv/media/ssd0"; }
-          { service = "qbittorrent"; mount = "/srv/media/ssd1"; }
         ]
+        && !builtins.elem
+          "/srv/media/ssd1"
+          config.systemd.services.qbittorrent.unitConfig.RequiresMountsFor
         && lib.all (user: config.users.users.${user}.group == "media") [
           "jellyfin"
-          "sonarr"
-          "radarr"
           "qbittorrent"
         ]
         && config.services.memos.enable
@@ -309,8 +313,9 @@ let
     }
     {
       assertion = lib.all hardened [
-        "arr-qbittorrent-sync"
+        "prowlarr-qbittorrent-sync"
         "balaur-dashboard"
+        "trilium-server"
       ];
       message = "network-facing custom services must retain their systemd sandboxing";
     }
@@ -326,11 +331,18 @@ else
   pkgs.runCommand "balaur-configuration-tests" { } ''
     grep --fixed-strings -- 'trap cleanup EXIT' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '--exclude /srv/app-data/fastflowlm/models' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    grep --fixed-strings -- 'stop_if_active trilium-server.service' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    ! grep --fixed-strings -- 'nextcloud' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    ! grep --fixed-strings -- 'pg_dump' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
+    ! grep --fixed-strings -- 'syncthing.service' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '/var/lib/hass' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '/var/lib/open-webui' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
-    grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
-    grep --fixed-strings -- '--sync-categories' ${config.systemd.services.arr-qbittorrent-sync.serviceConfig.ExecStart}
-    grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../arr-qbittorrent-sync.py}
+    grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.ExecStart}
+    grep --fixed-strings -- '--sync-category' ${config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.ExecStart}
+    grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../prowlarr-qbittorrent-sync.py}
+    grep --fixed-strings -- 'CATEGORY = "manual"' ${../prowlarr-qbittorrent-sync.py}
+    grep --fixed-strings -- 'CATEGORY_PATH = "/srv/media/ssd0/downloads/complete"' ${../prowlarr-qbittorrent-sync.py}
+    ${pkgs.python3}/bin/python ${../prowlarr-qbittorrent-sync.py} --help >/dev/null
     grep --fixed-strings -- '-interface 127.0.0.1' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     grep --fixed-strings -- '-rfbport 5910' ${config.systemd.services.web-desktop-vnc.serviceConfig.ExecStart}
     mkdir -p "$out"

@@ -28,6 +28,10 @@ _Avoid_: Live repository, own codebase
 The configuration and operational state currently active on the host, which may differ from a Configuration Snapshot.
 _Avoid_: Codebase, repository
 
+**Published Application**:
+An Owner-usable HTTP application intentionally reachable from the trusted home LAN and represented on the dashboard. An enabled application is not necessarily a Published Application; machine transport ports and temporary documents are excluded.
+_Avoid_: Dashboard item, open port
+
 **Diagnostic Report**:
 An evidence-backed result that states a conclusion, confidence, observed sources, visibility limitations, and recommended human action.
 _Avoid_: Answer, chat response

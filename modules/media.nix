@@ -1,15 +1,12 @@
 { pkgs, ... }:
 
 {
-  # Prowlarr, Sonarr, and Radarr were briefly disabled, so their accounts no
-  # longer exist even though their databases retain the original owners. Reuse
-  # those IDs exactly; keep the still-existing service IDs dynamic.
+  # Reuse Prowlarr's original IDs so its existing database ownership remains
+  # valid; keep the still-existing service IDs dynamic.
   util-nixarr.globals = {
     uids = {
       jellyfin = pkgs.lib.mkForce null;
       prowlarr = pkgs.lib.mkForce 986;
-      sonarr = pkgs.lib.mkForce 274;
-      radarr = pkgs.lib.mkForce 275;
       qbittorrent = pkgs.lib.mkForce null;
     };
     gids = {
@@ -18,8 +15,8 @@
     };
   };
 
-  # Nixarr owns Jellyfin, Prowlarr, Sonarr, Radarr, qBittorrent, shared
-  # permissions, settings synchronization, and fail-closed VPN confinement.
+  # Nixarr owns Jellyfin, Prowlarr, qBittorrent, shared permissions, and
+  # fail-closed VPN confinement.
   nixarr = {
     enable = true;
     mediaDir = "/srv/media/ssd0";
@@ -31,12 +28,7 @@
     };
 
     jellyfin.enable = true;
-    prowlarr = {
-      enable = true;
-      settings-sync.enable-nixarr-apps = true;
-    };
-    sonarr.enable = true;
-    radarr.enable = true;
+    prowlarr.enable = true;
 
     qbittorrent = {
       enable = true;
@@ -69,8 +61,6 @@
   # Local API access is used only by the credential synchronization service;
   # browser clients arriving from the LAN still require authentication.
   services.prowlarr.settings.auth.required = "DisabledForLocalAddresses";
-  services.sonarr.settings.auth.required = "DisabledForLocalAddresses";
-  services.radarr.settings.auth.required = "DisabledForLocalAddresses";
 
   # Nixarr supplies a static account, while the upstream Prowlarr module uses a
   # DynamicUser by default. Reuse the restored account and database ownership.
@@ -85,25 +75,16 @@
     "/srv/media/ssd1"
   ];
   systemd.services.prowlarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [ "/srv/app-data" ];
-  systemd.services.sonarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
-    "/srv/app-data"
-    "/srv/media/ssd1"
-  ];
-  systemd.services.radarr.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
-    "/srv/app-data"
-    "/srv/media/ssd0"
-  ];
   systemd.services.qbittorrent.unitConfig.RequiresMountsFor = pkgs.lib.mkAfter [
     "/srv/app-data"
     "/srv/media/ssd0"
-    "/srv/media/ssd1"
   ];
 
   systemd.services.qbittorrent.serviceConfig.UMask = pkgs.lib.mkForce "0002";
 
   # NixOS regenerates qBittorrent.conf on every service start. Inject a stable,
-  # host-local Web UI password afterward so the Arr clients and browser sessions
-  # retain one credential without putting it in the Nix store.
+  # host-local Web UI password afterward so Prowlarr and browser sessions retain
+  # one credential without putting it in the Nix store.
   systemd.services.qbittorrent.serviceConfig = {
     Restart = "on-failure";
     RestartSec = 10;
@@ -145,50 +126,43 @@
     ];
   };
 
-  # Converge the Sonarr and Radarr download clients on the host-local password.
-  # Their APIs mask saved passwords, so overwrite the field at boot, then
-  # restart qBittorrent once to clear any shared proxy-IP authentication ban.
-  systemd.services.arr-qbittorrent-sync = {
-    description = "Synchronize qBittorrent credentials in Sonarr and Radarr";
+  # Prowlarr is the manual search interface. Keep its qBittorrent client and
+  # qBittorrent's temporary-media category aligned with the host-local secret.
+  systemd.services.prowlarr-qbittorrent-sync = {
+    description = "Connect Prowlarr manual searches to qBittorrent";
     wants = [
       "qbt-webui-proxy.service"
-      "sonarr.service"
-      "radarr.service"
+      "prowlarr.service"
     ];
     after = [
       "qbt-webui-proxy.service"
-      "sonarr.service"
-      "radarr.service"
+      "prowlarr.service"
     ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      RuntimeDirectory = "arr-qbittorrent-sync";
-      RuntimeDirectoryMode = "0700";
       TimeoutStartSec = 240;
       Restart = "on-failure";
       RestartSec = 30;
-      ExecStart = pkgs.writeShellScript "arr-qbittorrent-sync" ''
-        status=0
-        ${pkgs.coreutils}/bin/rm -f "$RUNTIME_DIRECTORY/restart-required"
-        ${pkgs.python3}/bin/python ${../arr-qbittorrent-sync.py} \
-          --password-file /srv/secrets/qbittorrent-webui-password \
-          --restart-marker "$RUNTIME_DIRECTORY/restart-required" || status=$?
-
-        if [[ -e "$RUNTIME_DIRECTORY/restart-required" ]]; then
-          ${pkgs.systemd}/bin/systemctl restart qbittorrent.service || status=$?
-        fi
-
-        ${pkgs.python3}/bin/python ${../arr-qbittorrent-sync.py} \
-          --password-file /srv/secrets/qbittorrent-webui-password \
-          --sync-categories \
-          --timeout 60 || status=$?
-        exit "$status"
+      LoadCredential = [
+        "qbittorrent-password:/srv/secrets/qbittorrent-webui-password"
+        "prowlarr-config:/srv/app-data/prowlarr/config.xml"
+      ];
+      ExecStart = pkgs.writeShellScript "prowlarr-qbittorrent-sync" ''
+        set -euo pipefail
+        ${pkgs.systemd}/bin/systemctl restart qbittorrent.service
+        ${pkgs.python3}/bin/python ${../prowlarr-qbittorrent-sync.py} \
+          --password-file "$CREDENTIALS_DIRECTORY/qbittorrent-password" \
+          --prowlarr-config "$CREDENTIALS_DIRECTORY/prowlarr-config"
+        ${pkgs.python3}/bin/python ${../prowlarr-qbittorrent-sync.py} \
+          --password-file "$CREDENTIALS_DIRECTORY/qbittorrent-password" \
+          --sync-category \
+          --timeout 60
       '';
 
-      CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
+      CapabilityBoundingSet = "";
       NoNewPrivileges = true;
       PrivateDevices = true;
       PrivateTmp = true;

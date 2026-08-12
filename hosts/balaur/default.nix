@@ -7,7 +7,7 @@
     ../../modules/boot.nix
     ../../modules/desktop.nix
     ../../modules/access.nix
-    ../../modules/syncthing.nix
+    ../../modules/trilium.nix
     ../../modules/memos.nix
     ../../modules/media.nix
     ../../modules/home-assistant.nix

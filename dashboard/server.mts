@@ -12,10 +12,8 @@ const services = [
   { id: "memos", name: "Memos", host: "127.0.0.1", port: 5230 },
   { id: "jellyfin", name: "Jellyfin", host: "127.0.0.1", port: 8096 },
   { id: "prowlarr", name: "Prowlarr", host: "127.0.0.1", port: 9696 },
-  { id: "sonarr", name: "Sonarr", host: "127.0.0.1", port: 8989 },
-  { id: "radarr", name: "Radarr", host: "127.0.0.1", port: 7878 },
   { id: "qbittorrent", name: "qBittorrent", host: "127.0.0.1", port: 8082 },
-  { id: "syncthing", name: "Syncthing", host: "127.0.0.1", port: 8383 },
+  { id: "trilium", name: "Trilium", host: "127.0.0.1", port: 11000 },
   { id: "open-webui", name: "Balaur AI", host: "127.0.0.1", port: 3000 },
   { id: "fastflowlm", name: "FastFlowLM", host: "127.0.0.1", port: 8081 },
 ];

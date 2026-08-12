@@ -50,7 +50,7 @@ nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 After the 128 GiB OS RAID1, space on both NVMe drives is divided into
 125 GiB of mirrored application data, 100 GiB of mirrored personal data, and
 two independent filesystems using all remaining space (roughly 577 GiB each)
-for replaceable downloads.
+for replaceable media. Downloads use only `/srv/media/ssd0`.
 
 | Mount | Usable size | Redundancy |
 | --- | ---: | --- |
@@ -111,9 +111,13 @@ The USB filesystem is mounted only for the backup and is unmounted afterward,
 including when the backup fails. Retention is 7 daily, 4 weekly, and 6 monthly
 snapshots.
 
-The backup is a filesystem snapshot of live services, not a database transaction.
-Use Home Assistant's native backup and perform a restore test before treating
-this as a complete application disaster-recovery plan.
+Before creating an archive, the job pauses Trilium so its SQLite database and
+attachments are captured consistently, then resumes it before Borg prunes and
+compacts the repository, including after failures. Trilium also keeps its own
+periodic database backups enabled. Other application databases are still
+filesystem snapshots of live services; use Home Assistant's native backup as an
+additional safeguard and perform restore tests before treating this as a complete
+disaster-recovery plan.
 
 Provision the USB stick once. Confirm its device path carefully with `lsblk` before
 formatting; the following command destroys that partition's existing contents:
@@ -212,50 +216,72 @@ port directly.
 
 ## Local Services
 
-The dashboard monitors Home Assistant, Jellyfin, Prowlarr, Sonarr, Radarr,
-qBittorrent, Syncthing, Memos, Open WebUI, and FastFlowLM. Their service addresses include:
+The dashboard monitors Home Assistant, Jellyfin, Prowlarr, qBittorrent,
+Trilium, Memos, Open WebUI, and FastFlowLM. Their service addresses include:
 
 - Dashboard: `http://balaur.home.arpa`
 - Home Assistant: `http://balaur.home.arpa:8123`
 - Memos: `http://balaur.home.arpa:5230` (LAN-only)
 - Jellyfin: `http://balaur.home.arpa:8096`
 - Prowlarr: `http://balaur.home.arpa:9696`
-- Sonarr: `http://balaur.home.arpa:8989`
-- Radarr: `http://balaur.home.arpa:7878`
 - qBittorrent: `http://balaur.home.arpa:8082`
-- Syncthing: `http://balaur.home.arpa:8383` (LAN-only)
+- Trilium: `http://balaur.home.arpa:8084` (LAN-only)
 - Balaur AI (Open WebUI): `http://balaur.home.arpa:8083` (LAN-only)
 - Remote desktop: use the SSH tunnel above and a native VNC client on `localhost:5910`
 - Herdr: run `ssh -t alex@balaur.home.arpa herdr`
 - FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
 
-Jellyfin uses `/srv/media/ssd0/library/movies` and
-`/srv/media/ssd1/library/tv`. Its service account belongs to the `media` group,
-and persistent state is stored in `/srv/app-data/jellyfin`. Replaceable media
-is not included in the USB Borg backup.
+The media stack is intentionally limited to Jellyfin, Prowlarr, and
+qBittorrent. It treats downloads as a temporary watch queue rather than a
+permanent managed library:
 
-Media automation is limited to Prowlarr, Sonarr, Radarr, and qBittorrent. The
-existing application databases are reused from `/srv/app-data`, preserving the
-FileList indexer, monitored titles, quality profiles, and library history.
-Nixarr keeps the enabled Sonarr and Radarr applications registered in Prowlarr
-with Full Sync; Lidarr, Seerr, and FlexGet remain disabled. After the first
-start, remove the stale Lidarr and Whisparr entries under Prowlarr's
-**Settings → Apps**; declarative sync updates desired apps but does not delete
-old application records.
+1. Search FileList from Prowlarr's **Search** page.
+2. Grab the chosen release. Prowlarr sends it to qBittorrent with the `manual`
+   category.
+3. qBittorrent saves completed files directly under
+   `/srv/media/ssd0/downloads/complete`.
+4. Watch the files through Jellyfin.
+5. After satisfying FileList's current ratio and seed-time rules, remove the
+   torrent **and its files** through qBittorrent. Let Jellyfin rescan afterward.
 
-Use `/srv/media/ssd1/library/tv` as Sonarr's root folder and
-`/srv/media/ssd0/library/movies` as Radarr's root folder. A boot-time service
-configures their qBittorrent clients and category paths automatically:
+For playback, create one Jellyfin library named `Temporary` with content type
+**Mixed Movies and Shows** and folder
+`/srv/media/ssd0/downloads/complete`. This is a one-time UI setting;
+Jellyfin's service account already belongs to the `media` group. Its persistent
+state is stored in `/srv/app-data/jellyfin`, while replaceable media is excluded
+from the USB Borg backup.
 
-- `sonarr`: `/srv/media/ssd1/downloads/complete/sonarr`
-- `radarr`: `/srv/media/ssd0/downloads/complete/radarr`
+Prowlarr retains the existing FileList configuration in
+`/srv/app-data/prowlarr`. The boot-time `prowlarr-qbittorrent-sync` service
+registers qBittorrent as Prowlarr's download client and points the `manual`
+category at the main completed-download directory. The qBittorrent password is
+generated outside the Nix store and loaded through systemd credentials.
 
 qBittorrent remains fail-closed inside Nixarr's WireGuard namespace using
 `/srv/secrets/protonvpn.conf`. A host proxy provides its authenticated
 `127.0.0.1:8082` and LAN endpoint, while peer port 6881 is exposed only through
-the VPN. Its stable `admin` password is generated outside the Nix store and can
-be read with `sudo cat /srv/secrets/qbittorrent-webui-password`; the boot-time
-synchronization service installs that credential in Sonarr and Radarr.
+the VPN. Its stable `admin` password can be read with
+`sudo cat /srv/secrets/qbittorrent-webui-password`.
+
+After the first deployment, remove stale Sonarr, Radarr, Lidarr, and Whisparr
+entries under Prowlarr's **Settings → Apps**. Their disabled application state
+and old download directories are not deleted automatically; remove them only
+after confirming that no retained data or active seeding torrent needs them.
+
+TriliumNext is the LAN-only structured-notes service. Caddy publishes port 8084
+and proxies to Trilium on `127.0.0.1:11000`. Its SQLite database, attachments,
+configuration, and periodic internal backups live under `/srv/app-data/trilium`,
+which is included in the encrypted USB Borg backup. Complete the first-run setup
+in the web UI and choose a strong owner password; authentication remains enabled.
+
+The Obsidian package and Syncthing service are no longer installed. Keep the
+external copies of the old vault unchanged and import notes into Trilium in small
+batches, checking links and image, audio, and video attachments after each batch.
+Trilium's database becomes the source of truth for imported content. The old
+Nextcloud, PostgreSQL, and `/srv/personal/nextcloud-data` files are not deleted by
+the configuration change; remove them manually only after confirming they are no
+longer needed. Use a secured VPN for access away from home; do not forward port
+8084 from the router.
 
 Memos stores its SQLite database and uploaded attachments in
 `/srv/app-data/memos`, which is included in the encrypted USB Borg backup. On
@@ -282,12 +308,8 @@ Radio Browser, and Google Translate are currently included.
 
 Its runtime configuration, automations, database, and credentials are stored in
 `/var/lib/hass`; do not put Home Assistant secrets in this repository. The USB
-Borg job does not currently include this directory, so use Home Assistant's
-built-in backup feature for its state.
-
-Syncthing is intentionally LAN-only: global discovery, relays, and automatic
-router port mapping are disabled. Use a separately secured VPN if remote sync
-is needed.
+Borg job includes this directory, but a native Home Assistant backup remains a
+useful application-consistent safeguard.
 
 FastFlowLM runs the reasoning and tool-capable `qwen3.6-moe:35b-a3b` model on the Ryzen AI XDNA2 NPU with its catalog-default 32K context. The Q4_K_S NPU build has a catalog footprint of 24.3 GB, which fits in this host's 54.5 GiB of RAM. Its OpenAI-compatible API remains on port 8081, with endpoints below `/v1`; it does not provide the old llama.cpp web UI. The first service start downloads FastFlowLM's NPU-optimized model files from Hugging Face into `/srv/app-data/fastflowlm/models`, so the API remains unavailable until that large download and model load finish. Follow progress with `journalctl -fu fastflowlm`.
 

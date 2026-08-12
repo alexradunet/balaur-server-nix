@@ -15,7 +15,6 @@
     htop
     tmux
     chromium
-    obsidian
     herdrPackage
     fastFlowLMPackage
     piPackage

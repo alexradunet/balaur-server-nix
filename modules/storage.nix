@@ -58,7 +58,7 @@ in
     ];
   };
 
-  # Independent, non-redundant storage for replaceable downloaded media.
+  # Independent, non-redundant storage for replaceable media.
   fileSystems."/srv/media/ssd0" = {
     device = "/dev/disk/by-label/BALAUR_MEDIA_0";
     fsType = "ext4";
@@ -104,13 +104,8 @@ in
     "d /srv/media/ssd0/downloads 2775 qbittorrent media -"
     "d /srv/media/ssd0/downloads/incomplete 2775 qbittorrent media -"
     "d /srv/media/ssd0/downloads/complete 2775 qbittorrent media -"
-    "d /srv/media/ssd0/downloads/complete/radarr 2775 qbittorrent media -"
     "d /srv/media/ssd0/library 2775 alex media -"
     "d /srv/media/ssd0/library/movies 2775 alex media -"
-    "d /srv/media/ssd1/downloads 2775 qbittorrent media -"
-    "d /srv/media/ssd1/downloads/incomplete 2775 qbittorrent media -"
-    "d /srv/media/ssd1/downloads/complete 2775 qbittorrent media -"
-    "d /srv/media/ssd1/downloads/complete/sonarr 2775 qbittorrent media -"
     "d /srv/media/ssd1/library 2775 alex media -"
     "d /srv/media/ssd1/library/tv 2775 alex media -"
     "d /srv/media/ssd1/library/music 2775 alex media -"

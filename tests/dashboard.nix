@@ -32,10 +32,11 @@ pkgs.runCommand "balaur-dashboard-tests"
     grep --fixed-strings 'serviceUrl(5230)' index.html
     grep --fixed-strings 'serviceUrl(8096)' index.html
     grep --fixed-strings 'serviceUrl(9696)' index.html
-    grep --fixed-strings 'serviceUrl(8989)' index.html
-    grep --fixed-strings 'serviceUrl(7878)' index.html
     grep --fixed-strings 'serviceUrl(8082)' index.html
-    grep --fixed-strings 'serviceUrl(8383)' index.html
+    grep --fixed-strings 'serviceUrl(8084)' index.html
+    ! grep --fixed-strings 'serviceUrl(8989)' index.html
+    ! grep --fixed-strings 'serviceUrl(7878)' index.html
+    ! grep --fixed-strings 'serviceUrl(8383)' index.html
     grep --fixed-strings 'serviceUrl(8083)' index.html
     ! grep --fixed-strings 'id="desktop"' index.html
     ! grep --fixed-strings 'id="herdr"' index.html
@@ -43,16 +44,20 @@ pkgs.runCommand "balaur-dashboard-tests"
     ! grep --fixed-strings 'serviceUrl(7681' index.html
     grep --fixed-strings 'serviceUrl(8081, "/v1/models")' index.html
     grep --fixed-strings 'Prowlarr' index.html
-    grep --fixed-strings 'Sonarr' index.html
-    grep --fixed-strings 'Radarr' index.html
+    ! grep --fixed-strings 'Sonarr' index.html
+    ! grep --fixed-strings 'Radarr' index.html
+    grep --fixed-strings 'Manual media search' index.html
     grep --fixed-strings 'FastFlowLM' index.html
     grep --fixed-strings 'Balaur AI' index.html
     grep --fixed-strings 'Memos' index.html
+    grep --fixed-strings 'Trilium' index.html
+    grep --fixed-strings 'Structured notes' index.html
+    ! grep --fixed-strings 'Nextcloud' index.html
     grep --fixed-strings '<h3 id="home-services">Home</h3>' index.html
     grep --fixed-strings '<h3 id="media-services">Media</h3>' index.html
     grep --fixed-strings '<h3 id="file-services">Downloads &amp; Files</h3>' index.html
     grep --fixed-strings '<h3 id="tool-services">Tools &amp; Compute</h3>' index.html
-    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 10
+    test "$(grep --only-matching 'class="service-icon"' index.html | wc --lines)" = 8
     grep --fixed-strings '<section class="disks" id="disks"></section>' index.html
     grep --fixed-strings 'data.disks.map' index.html
 
@@ -68,8 +73,8 @@ pkgs.runCommand "balaur-dashboard-tests"
         and (.disks[0].mounted == true)
         and (.disks[0].total > 0)
         and ([.disks[].mounted] | all(type == "boolean"))
-        and (.services | length == 10)
-        and ([.services[].id] == ["home-assistant", "memos", "jellyfin", "prowlarr", "sonarr", "radarr", "qbittorrent", "syncthing", "open-webui", "fastflowlm"])
+        and (.services | length == 8)
+        and ([.services[].id] == ["home-assistant", "memos", "jellyfin", "prowlarr", "qbittorrent", "trilium", "open-webui", "fastflowlm"])
         and ([.services[].online] | all(type == "boolean"))
       ' status.json
 

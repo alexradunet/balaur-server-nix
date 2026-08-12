@@ -38,7 +38,6 @@
     pkg:
     builtins.elem (pkgs.lib.getName pkg) [
       "fastflowlm"
-      "obsidian"
       "open-webui"
     ];
   # Gives us nmcli + nmtui, including an easy Wi-Fi wizard.

@@ -85,7 +85,7 @@ compatible:
 ```sh
 systemd-analyze security qbt-webui-proxy.service
 systemd-analyze security balaur-backup.service
-systemd-analyze security arr-qbittorrent-sync.service
+systemd-analyze security prowlarr-qbittorrent-sync.service
 ```
 
 Pay particular attention to `CapabilityBoundingSet`, `NoNewPrivileges`,

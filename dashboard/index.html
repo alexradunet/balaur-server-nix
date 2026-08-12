@@ -99,9 +99,7 @@
         <h3 id="media-services">Media</h3>
         <div class="services">
           <a class="service" id="jellyfin"><span class="service-info"><span class="service-icon" aria-hidden="true">🎬</span><span>Jellyfin<br><small>Media server</small></span></span><i class="status"></i></a>
-          <a class="service" id="prowlarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🧭</span><span>Prowlarr<br><small>Indexer manager</small></span></span><i class="status"></i></a>
-          <a class="service" id="sonarr"><span class="service-info"><span class="service-icon" aria-hidden="true">📺</span><span>Sonarr<br><small>TV management</small></span></span><i class="status"></i></a>
-          <a class="service" id="radarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🎞️</span><span>Radarr<br><small>Movie management</small></span></span><i class="status"></i></a>
+          <a class="service" id="prowlarr"><span class="service-info"><span class="service-icon" aria-hidden="true">🧭</span><span>Prowlarr<br><small>Manual media search</small></span></span><i class="status"></i></a>
         </div>
       </section>
 
@@ -109,7 +107,7 @@
         <h3 id="file-services">Downloads &amp; Files</h3>
         <div class="services">
           <a class="service" id="qbittorrent"><span class="service-info"><span class="service-icon" aria-hidden="true">⬇️</span><span>qBittorrent<br><small>Download client</small></span></span><i class="status"></i></a>
-          <a class="service" id="syncthing"><span class="service-info"><span class="service-icon" aria-hidden="true">🔄</span><span>Syncthing<br><small>File sync</small></span></span><i class="status"></i></a>
+          <a class="service" id="trilium"><span class="service-info"><span class="service-icon" aria-hidden="true">📚</span><span>Trilium<br><small>Structured notes</small></span></span><i class="status"></i></a>
         </div>
       </section>
 
@@ -134,10 +132,8 @@
       byId("memos").href = serviceUrl(5230);
       byId("jellyfin").href = serviceUrl(8096);
       byId("prowlarr").href = serviceUrl(9696);
-      byId("sonarr").href = serviceUrl(8989);
-      byId("radarr").href = serviceUrl(7878);
       byId("qbittorrent").href = serviceUrl(8082);
-      byId("syncthing").href = serviceUrl(8383);
+      byId("trilium").href = serviceUrl(8084);
       byId("open-webui").href = serviceUrl(8083);
       byId("fastflowlm").href = serviceUrl(8081, "/v1/models");
 

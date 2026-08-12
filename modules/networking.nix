@@ -5,21 +5,15 @@ let
     22
     80
     5230
-    7878
     8081
     8082
     8083
+    8084
     8096
     8123
-    8383
-    8989
     9696
-    22000
   ];
-  lanUDPPorts = [
-    21027
-    22000
-  ];
+  lanUDPPorts = [ ];
 in
 {
   # These services are intended for the trusted home LAN only. Keep the
