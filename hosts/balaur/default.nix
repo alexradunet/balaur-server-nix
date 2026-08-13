@@ -8,7 +8,6 @@
     ../../modules/desktop.nix
     ../../modules/access.nix
     ../../modules/trilium.nix
-    ../../modules/memos.nix
     ../../modules/media.nix
     ../../modules/home-assistant.nix
     ../../modules/storage.nix

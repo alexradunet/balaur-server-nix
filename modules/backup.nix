@@ -95,7 +95,6 @@
           /srv/app-data \
           /srv/personal \
           /var/lib/hass \
-          /var/lib/open-webui \
           /srv/secrets || backup_status=$?
 
         # Resume user-facing writers before slower retention maintenance.

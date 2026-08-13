@@ -88,7 +88,7 @@ let
     {
       assertion =
         config.services.trilium-server.enable
-        && config.services.trilium-server.package.version == "0.102.2"
+        && config.services.trilium-server.package.version == "0.104.1"
         && config.services.trilium-server.dataDir == "/srv/app-data/trilium"
         && config.services.trilium-server.instanceName == "Trilium"
         && !config.services.trilium-server.noBackup
@@ -99,9 +99,17 @@ let
         && config.systemd.services.trilium-server.serviceConfig.NoNewPrivileges
         && config.systemd.services.trilium-server.serviceConfig.ProtectSystem == "strict"
         && config.systemd.services.trilium-server.serviceConfig.ReadWritePaths == [ "/srv/app-data/trilium" ]
+        && config.systemd.services.trilium-server.environment.TRILIUM_NETWORK_TRUSTEDREVERSEPROXY == "127.0.0.1"
         && lib.hasInfix
           "reverse_proxy 127.0.0.1:11000"
-          config.services.caddy.virtualHosts."http://balaur.home.arpa:8084".extraConfig
+          config.services.caddy.virtualHosts."https://192.168.50.2:8084".extraConfig
+        && lib.hasInfix
+          "tls internal"
+          config.services.caddy.virtualHosts."https://192.168.50.2:8084".extraConfig
+        && lib.hasInfix
+          "reverse_proxy 127.0.0.1:11000"
+          config.services.caddy.virtualHosts."http://192.168.50.2:8085".extraConfig
+
         && !config.services.nextcloud.enable
         && !config.services.postgresql.enable
         && !(config.services.redis.servers ? nextcloud)
@@ -132,11 +140,10 @@ let
         && config.networking.firewall.interfaces.enp100s0.allowedTCPPorts == [
           22
           80
-          5230
           8081
           8082
-          8083
           8084
+          8085
           8096
           8123
           9696
@@ -257,30 +264,6 @@ let
           "jellyfin"
           "qbittorrent"
         ]
-        && config.services.memos.enable
-        && config.services.memos.dataDir == "/srv/app-data/memos"
-        && !config.services.memos.openFirewall
-        && config.services.memos.settings.MEMOS_MODE == "prod"
-        && config.services.memos.settings.MEMOS_ADDR == "0.0.0.0"
-        && config.services.memos.settings.MEMOS_PORT == "5230"
-        && config.services.memos.settings.MEMOS_DATA == "/srv/app-data/memos"
-        && config.services.memos.settings.MEMOS_DRIVER == "sqlite"
-        && config.services.memos.settings.MEMOS_INSTANCE_URL == "http://balaur.home.arpa:5230"
-        && config.systemd.services.memos.unitConfig.RequiresMountsFor == [ "/srv/app-data" ]
-        && config.services.open-webui.enable
-        && config.services.open-webui.host == "127.0.0.1"
-        && config.services.open-webui.port == 3000
-        && config.services.open-webui.stateDir == "/var/lib/open-webui"
-        && !config.services.open-webui.openFirewall
-        && config.services.open-webui.environment.ENABLE_OLLAMA_API == "False"
-        && config.services.open-webui.environment.ENABLE_OPENAI_API == "True"
-        && config.services.open-webui.environment.OPENAI_API_BASE_URLS == "http://127.0.0.1:8081/v1"
-        && config.services.open-webui.environment.OPENAI_API_KEYS == "fastflowlm"
-        && config.services.open-webui.environment.DEFAULT_MODELS == "qwen3.6-moe:35b-a3b"
-        && config.services.open-webui.environment.ENABLE_SIGNUP == "False"
-        && config.services.open-webui.environment.ANONYMIZED_TELEMETRY == "False"
-        && builtins.elem "fastflowlm.service" config.systemd.services.open-webui.wants
-        && builtins.elem "fastflowlm.service" config.systemd.services.open-webui.after
         && config.services.home-assistant.enable
         && config.services.home-assistant.config.http.server_host == "0.0.0.0"
         && config.services.home-assistant.config.http.server_port == 8123
@@ -305,8 +288,7 @@ let
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_HOST == "127.0.0.1"
         && config.systemd.services.balaur-dashboard.environment.DASHBOARD_PORT == "8080"
         && config.services.caddy.enable
-        && lib.hasInfix "reverse_proxy 127.0.0.1:8080" config.services.caddy.virtualHosts."http://balaur.home.arpa".extraConfig
-        && lib.hasInfix "reverse_proxy 127.0.0.1:3000" config.services.caddy.virtualHosts."http://balaur.home.arpa:8083".extraConfig
+        && lib.hasInfix "reverse_proxy 127.0.0.1:8080" config.services.caddy.virtualHosts."http://192.168.50.2".extraConfig
         && !(builtins.hasAttr "herdr-web" config.systemd.services)
         && !(builtins.hasAttr "web-desktop-novnc" config.systemd.services);
       message = "application access controls and dashboard routing must remain stable";
@@ -336,7 +318,6 @@ else
     ! grep --fixed-strings -- 'pg_dump' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     ! grep --fixed-strings -- 'syncthing.service' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- '/var/lib/hass' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
-    grep --fixed-strings -- '/var/lib/open-webui' ${config.systemd.services.balaur-backup.serviceConfig.ExecStart}
     grep --fixed-strings -- 'systemctl restart qbittorrent.service' ${config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '--sync-category' ${config.systemd.services.prowlarr-qbittorrent-sync.serviceConfig.ExecStart}
     grep --fixed-strings -- '"Accept-Encoding": "gzip"' ${../prowlarr-qbittorrent-sync.py}

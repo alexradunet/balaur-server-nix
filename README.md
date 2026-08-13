@@ -161,38 +161,21 @@ SSH and firewall policy, loopback-only services, and systemd sandboxing. The
 dashboard check starts the real Node server and verifies its HTTP
 routes, security headers, metrics response, and service status payload.
 
-## LAN DNS (ASUS RT-AX82U)
+## LAN Address
 
-Use the router's local DNS so the server has a stable, memorable LAN address:
-
-1. Open the ASUSWRT administration page and go to **Advanced Settings → LAN →
-   DHCP Server**.
-2. Set **Domain Name** to `home.arpa`.
-3. Under **Manually Assigned IP around the DHCP list**, reserve
-   `192.168.50.13` for the server's MAC address and use the hostname `balaur`.
-4. Leave **DNS Server 1** and **DNS Server 2** blank so DHCP clients use the
-   router's local resolver.
-5. Apply the settings, then reconnect clients or renew their DHCP leases.
-
-`home.arpa` is the reserved domain for private home networks. Verify resolution
-from a LAN client with:
-
-```sh
-getent hosts balaur.home.arpa
-ssh alex@balaur.home.arpa
-```
-
-The short name `balaur` may also work on clients that honor the DHCP search
-domain. The IP address remains a fallback if local DNS is unavailable.
+The server uses the router's reserved LAN address `192.168.50.2`. Reserve this
+address for the server's MAC address in the ASUS RT-AX82U DHCP settings and use
+the IP address directly from LAN or WireGuard clients. See
+[`docs/network-access.md`](docs/network-access.md) for the complete split-tunnel
+WireGuard setup and remote-access test procedure.
 
 ## SSH Access
 
-Connect over SSH with `ssh alex@balaur.home.arpa` (or use `ssh alex@balaur` or
-`ssh alex@192.168.50.13` as fallbacks). Authentication uses the declaratively
-managed `alex@yoga-laptop` Ed25519 key; password authentication, root login,
-keyboard-interactive authentication, and X11 forwarding are disabled.
+Connect over SSH with `ssh alex@192.168.50.2`. Authentication uses the
+declaratively managed `alex@yoga-laptop` Ed25519 key; password authentication,
+root login, keyboard-interactive authentication, and X11 forwarding are disabled.
 
-The dashboard is available on the LAN at `http://balaur.home.arpa`; Caddy
+The dashboard is available on the LAN at `http://192.168.50.2`; Caddy
 forwards the standard HTTP port to the private dashboard process. Administrative
 access is deliberately absent from the dashboard: Herdr has no web terminal,
 and the remote desktop has no noVNC gateway. The router must not forward any
@@ -201,13 +184,13 @@ service ports from the internet.
 Run Herdr directly over SSH:
 
 ```sh
-ssh -t alex@balaur.home.arpa herdr
+ssh -t alex@192.168.50.2 herdr
 ```
 
 For the remote desktop, tunnel the loopback-only VNC server over SSH:
 
 ```sh
-ssh -N -L 5910:127.0.0.1:5910 alex@balaur.home.arpa
+ssh -N -L 5910:127.0.0.1:5910 alex@192.168.50.2
 ```
 
 Then configure a native VNC client to connect to `localhost` on port `5910`.
@@ -217,19 +200,18 @@ port directly.
 ## Local Services
 
 The dashboard monitors Home Assistant, Jellyfin, Prowlarr, qBittorrent,
-Trilium, Memos, Open WebUI, and FastFlowLM. Their service addresses include:
+Trilium, and FastFlowLM. Their service addresses include:
 
-- Dashboard: `http://balaur.home.arpa`
-- Home Assistant: `http://balaur.home.arpa:8123`
-- Memos: `http://balaur.home.arpa:5230` (LAN-only)
-- Jellyfin: `http://balaur.home.arpa:8096`
-- Prowlarr: `http://balaur.home.arpa:9696`
-- qBittorrent: `http://balaur.home.arpa:8082`
-- Trilium: `http://balaur.home.arpa:8084` (LAN-only)
-- Balaur AI (Open WebUI): `http://balaur.home.arpa:8083` (LAN-only)
+- Dashboard: `http://192.168.50.2`
+- Home Assistant: `http://192.168.50.2:8123`
+- Jellyfin: `http://192.168.50.2:8096`
+- Prowlarr: `http://192.168.50.2:9696`
+- qBittorrent: `http://192.168.50.2:8082`
+- Trilium: `https://192.168.50.2:8084` (LAN/VPN-only)
+- Pocket Trilium fallback: `http://192.168.50.2:8085` (LAN/VPN-only)
 - Remote desktop: use the SSH tunnel above and a native VNC client on `localhost:5910`
-- Herdr: run `ssh -t alex@balaur.home.arpa herdr`
-- FastFlowLM models API: `http://balaur.home.arpa:8081/v1/models`
+- Herdr: run `ssh -t alex@192.168.50.2 herdr`
+- FastFlowLM models API: `http://192.168.50.2:8081/v1/models`
 
 The media stack is intentionally limited to Jellyfin, Prowlarr, and
 qBittorrent. It treats downloads as a temporary watch queue rather than a
@@ -268,11 +250,47 @@ entries under Prowlarr's **Settings → Apps**. Their disabled application state
 and old download directories are not deleted automatically; remove them only
 after confirming that no retained data or active seeding torrent needs them.
 
-TriliumNext is the LAN-only structured-notes service. Caddy publishes port 8084
-and proxies to Trilium on `127.0.0.1:11000`. Its SQLite database, attachments,
-configuration, and periodic internal backups live under `/srv/app-data/trilium`,
-which is included in the encrypted USB Borg backup. Complete the first-run setup
-in the web UI and choose a strong owner password; authentication remains enabled.
+TriliumNext is the LAN/VPN-only structured-notes service. Trilium listens only
+on `127.0.0.1:11000`; Caddy publishes `https://192.168.50.2:8084`, terminates
+TLS with its private local CA, and proxies WebSockets required for sync. For
+clients that cannot trust the private CA (such as Pocket Trilium), Caddy also
+publishes `http://192.168.50.2:8085`. Port 8085 is available only on the LAN and
+through WireGuard; it is not forwarded from the internet. Use the HTTPS
+address for browsers and desktop clients, and the HTTP address for Pocket
+Trilium if its embedded certificate trust cannot be configured.
+
+For remote WireGuard clients, configure the router to route the WireGuard client
+subnet to `192.168.50.0/24` (or NAT that traffic to the LAN). If using a
+hostname instead of the IP address, the router's DNS must resolve that hostname
+to `192.168.50.2` for both LAN and WireGuard clients. Install Caddy's local root CA on every sync client before configuring Trilium.
+On Windows, stage the root certificate so the SSH user can copy it, then
+import it into **Trusted Root Certification Authorities**:
+
+```powershell
+ssh alex@192.168.50.2 "sudo cp /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt /home/alex/balaur-caddy-root.crt; sudo chmod 0644 /home/alex/balaur-caddy-root.crt"
+scp alex@192.168.50.2:/home/alex/balaur-caddy-root.crt `
+  "$env:USERPROFILE\Downloads\balaur-caddy-root.crt"
+ssh alex@192.168.50.2 "rm /home/alex/balaur-caddy-root.crt"
+Import-Certificate -FilePath "$env:USERPROFILE\Downloads\balaur-caddy-root.crt" `
+  -CertStoreLocation Cert:\CurrentUser\Root
+```
+
+Alternatively, double-click the `.crt` file, choose **Install Certificate**,
+select **Current User**, and place it in **Trusted Root Certification
+Authorities**. Fully exit Trilium Desktop, including its tray process, and start
+it again after importing the certificate. Linux clients should install the same
+certificate into their system trust store and, if necessary, Electron's NSS
+store.
+
+The CA is generated on first Caddy start. A publicly trusted certificate for a
+real hostname is preferable if clients cannot install this CA. In Trilium,
+configure Options → Sync with `https://192.168.50.2:8084` (or
+`http://192.168.50.2:8085` for Pocket Trilium); Caddy forwards the WebSocket
+upgrade and the server trusts only its local reverse proxy. Its SQLite
+database, attachments, configuration, and periodic internal backups live under
+`/srv/app-data/trilium`, which is included in the encrypted USB Borg backup.
+Complete the first-run setup in the web UI and choose a strong owner password;
+authentication remains enabled.
 
 The Obsidian package and Syncthing service are no longer installed. Keep the
 external copies of the old vault unchanged and import notes into Trilium in small
@@ -282,23 +300,6 @@ Nextcloud, PostgreSQL, and `/srv/personal/nextcloud-data` files are not deleted 
 the configuration change; remove them manually only after confirming they are no
 longer needed. Use a secured VPN for access away from home; do not forward port
 8084 from the router.
-
-Memos stores its SQLite database and uploaded attachments in
-`/srv/app-data/memos`, which is included in the encrypted USB Borg backup. On
-first launch, create the administrator account, add the second member under
-Memos settings, then disable user registration and public memos. Use
-**Protected** visibility for posts intended for the shared signed-in feed. Keep
-port 5230 LAN-only; use a separately secured VPN rather than router port
-forwarding for access away from home.
-
-Open WebUI provides the authenticated Balaur AI chat interface on port 8083 and
-uses FastFlowLM's loopback OpenAI-compatible endpoint. On first launch, create
-the owner account; the pinned Open WebUI version permits this bootstrap account
-while declarative configuration keeps subsequent public signup disabled. Its
-chat history, users, uploaded documents, embedding cache, and generated secret
-key live under `/var/lib/open-webui`, which is included in the encrypted USB
-Borg backup. Open WebUI is loopback-only behind Caddy, and its telemetry is
-disabled. Keep port 8083 LAN-only and use a secured VPN for remote access.
 
 Complete Home Assistant's first-run onboarding at its LAN URL. NixOS packages integration
 dependencies declaratively: add any new integration to

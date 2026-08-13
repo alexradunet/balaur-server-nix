@@ -91,7 +91,6 @@
         <h3 id="home-services">Home</h3>
         <div class="services">
           <a class="service" id="home-assistant"><span class="service-info"><span class="service-icon" aria-hidden="true">🏠</span><span>Home Assistant<br><small>Home automation</small></span></span><i class="status"></i></a>
-          <a class="service" id="memos"><span class="service-info"><span class="service-icon" aria-hidden="true">📝</span><span>Memos<br><small>Shared microblog</small></span></span><i class="status"></i></a>
         </div>
       </section>
 
@@ -114,7 +113,6 @@
       <section class="service-category" aria-labelledby="tool-services">
         <h3 id="tool-services">Tools &amp; Compute</h3>
         <div class="services">
-          <a class="service" id="open-webui"><span class="service-info"><span class="service-icon" aria-hidden="true">💬</span><span>Balaur AI<br><small>Private AI chat</small></span></span><i class="status"></i></a>
           <a class="service" id="fastflowlm"><span class="service-info"><span class="service-icon" aria-hidden="true">🧠</span><span>FastFlowLM<br><small>Qwen 3.6 MoE on Ryzen AI NPU</small></span></span><i class="status"></i></a>
         </div>
       </section>
@@ -123,18 +121,17 @@
 
     <script>
       const byId = (id) => document.getElementById(id);
-      const serviceUrl = (port, path = "/") => {
+      const serviceUrl = (port, path = "/", protocol = location.protocol) => {
         const url = new URL(path, location.origin);
+        url.protocol = protocol;
         url.port = port;
         return url.href;
       };
       byId("home-assistant").href = serviceUrl(8123);
-      byId("memos").href = serviceUrl(5230);
       byId("jellyfin").href = serviceUrl(8096);
       byId("prowlarr").href = serviceUrl(9696);
       byId("qbittorrent").href = serviceUrl(8082);
-      byId("trilium").href = serviceUrl(8084);
-      byId("open-webui").href = serviceUrl(8083);
+      byId("trilium").href = serviceUrl(8084, "/", "https:");
       byId("fastflowlm").href = serviceUrl(8081, "/v1/models");
 
       const storage = (used, total) => {

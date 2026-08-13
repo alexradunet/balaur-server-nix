@@ -3,7 +3,26 @@
 {
   services.trilium-server = {
     enable = true;
-    package = pkgs.trilium-next-server;
+    # Keep TriliumNext current while nixpkgs catches up with upstream releases.
+    package = pkgs.trilium-next-server.overrideAttrs (old: rec {
+      version = "0.104.1";
+      src = pkgs.fetchurl {
+        url =
+          if pkgs.stdenv.hostPlatform.isx86_64 then
+            "https://github.com/TriliumNext/Trilium/releases/download/v${version}/TriliumNotes-Server-v${version}-linux-x64.tar.xz"
+          else if pkgs.stdenv.hostPlatform.isAarch64 then
+            "https://github.com/TriliumNext/Trilium/releases/download/v${version}/TriliumNotes-Server-v${version}-linux-arm64.tar.xz"
+          else
+            throw "TriliumNext server is not supported on this platform";
+        hash =
+          if pkgs.stdenv.hostPlatform.isx86_64 then
+            "sha256-Ym8gcD0Rsp7rw5S5CHHW/Sh69JiyEOo3+U22nEs6yHg="
+          else if pkgs.stdenv.hostPlatform.isAarch64 then
+            "sha256-yIcM9BzrNT5gLbb+DaiJINQyIuygdmDJloHQ424OTxI="
+          else
+            throw "TriliumNext server is not supported on this platform";
+      };
+    });
     dataDir = "/srv/app-data/trilium";
     instanceName = "Trilium";
     noBackup = false;
@@ -12,9 +31,19 @@
     port = 11000;
   };
 
-  # Caddy publishes the authenticated application on the trusted LAN while the
-  # Trilium process remains host-local.
-  services.caddy.virtualHosts."http://balaur.home.arpa:8084".extraConfig = ''
+  # Caddy is the only network-facing listener. Trilium's sync protocol uses
+  # WebSockets; Caddy's reverse_proxy handles the upgrade automatically.
+  systemd.services.trilium-server.environment.TRILIUM_NETWORK_TRUSTEDREVERSEPROXY = "127.0.0.1";
+
+  services.caddy.virtualHosts."https://192.168.50.2:8084".extraConfig = ''
+    tls internal
+    reverse_proxy 127.0.0.1:11000
+  '';
+
+  # Pocket Trilium cannot use the private Caddy CA. This plain-HTTP endpoint
+  # is reachable only from the trusted LAN/WireGuard interfaces; never forward
+  # port 8085 from the router's WAN.
+  services.caddy.virtualHosts."http://192.168.50.2:8085".extraConfig = ''
     reverse_proxy 127.0.0.1:11000
   '';
 
