@@ -29,8 +29,7 @@ The attached SanDisk `BALAUR_BACKUP` device is the existing 123,009,761,280-byte
 Still needed from the Owner:
 
 - Attach the two new nominal 256 GB USB devices later for identity capture.
-- Select SMTP relay and alert destination.
-- Choose shared-media SMB write policy.
-- Confirm retained Alex SSH keys.
-- Confirm whether Andreea may use local TTY login.
+- Select SMTP relay and alert destination; implementation remains provider-neutral until then.
 - Identify client devices that need the Caddy CA.
+
+Applied the accepted defaults: Alex may write shared media while both owners may read it; both current Alex SSH public keys remain; Andreea has no SSH or local TTY login.

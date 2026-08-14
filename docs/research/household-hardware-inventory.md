@@ -98,9 +98,9 @@ The current configuration contains two Alex SSH public keys:
 - `alex@yoga-laptop`
 - `alex@balaur.space`
 
-Whether both should remain authorized requires owner confirmation before issue 07. No private key was inspected.
+Both remain authorized under the previously accepted access recommendation. No private key was inspected.
 
-Andreea is intended to have a normal local/SMB account with no sudo and no SSH admission. Whether TTY console login should be enabled remains to be confirmed.
+Andreea is intended to have a normal local/SMB account with no sudo, SSH admission, or local TTY login. Samba/application credentials do not grant a host shell.
 
 ## Confirmed backup/source policy
 
@@ -109,12 +109,11 @@ Each future owner USB includes only that owner's home/files, private application
 ## Values still requiring human input or future attached hardware
 
 1. Both new nominal 256 GB USB devices: model, by-id, serial, byte size, partition UUID, label, and blank/existing-content status. They are not currently attached.
-2. SMTP relay and destination email for operational alerts.
-3. Exact shared-media SMB write policy: Alex-only write with Andreea read-only, or both owners write.
-4. Whether both existing Alex SSH public keys should remain.
-5. Whether Andreea may log in at a local text console.
-6. The list of client devices on which the Caddy private CA will be installed.
-7. Final thermal alert thresholds after a sustained ROCm/Jellyfin benchmark.
+2. SMTP relay and destination email for operational alerts. The implementation should expose a provider-neutral sendmail interface so this can be supplied later as an encrypted secret.
+3. The list of client devices on which the Caddy private CA will be installed.
+4. Final thermal alert thresholds after a sustained ROCm/Jellyfin benchmark.
+
+Confirmed policy: Alex may write the shared-media SMB share; both owners may read it. Both existing Alex SSH public keys remain. Andreea receives no host shell through SSH or local TTY.
 
 These unresolved values must remain non-operational placeholders or explicit assertions; implementation must not guess them.
 
