@@ -2,6 +2,7 @@
 
 Status: ready-for-agent
 Blocked by: 01, 03
+Completed: 2026-08-14
 
 ## Objective
 
@@ -22,3 +23,5 @@ Create a headless target composition and focused test structure without yet prov
 - Tests have focused ownership so later tickets do not all modify one assertion block.
 
 ## Comments
+
+Created the buildable headless baseline with the proven Linux 6.18/OpenZFS 2.4 pins, SSH-only trusted-interface firewall, pi tooling, and focused negative-invariant checks. Legacy application, desktop, storage, and backup files remain preserved but unimported. This deliberately service-empty intermediate configuration must not be deployed; later tickets reintroduce storage and services behind their safety gates.

@@ -5,15 +5,7 @@
     ./hardware-configuration.nix
     ../../modules/base.nix
     ../../modules/boot.nix
-    ../../modules/desktop.nix
     ../../modules/access.nix
-    ../../modules/trilium.nix
-    ../../modules/media.nix
-    ../../modules/home-assistant.nix
-    ../../modules/storage.nix
-    ../../modules/backup.nix
-    ../../modules/fastflowlm.nix
-    ../../modules/web-services.nix
     ../../modules/networking.nix
     ../../modules/packages.nix
   ];

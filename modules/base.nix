@@ -1,6 +1,13 @@
 { pkgs, ... }:
 
 {
+  # Keep the target platform on the compatibility pair proven for this host.
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
+  boot.zfs.package = pkgs.zfs_2_4;
+
+  # Required for the installed AMD platform and its Wi-Fi hardware.
+  hardware.enableRedistributableFirmware = true;
+
   # ------------------------------------------------------------
   # Nix
   # ------------------------------------------------------------
@@ -34,11 +41,6 @@
     notifications.x11.enable = false;
   };
 
-  nixpkgs.config.allowUnfreePredicate =
-    pkg:
-    builtins.elem (pkgs.lib.getName pkg) [
-      "fastflowlm"
-    ];
   # Gives us nmcli + nmtui, including an easy Wi-Fi wizard.
   networking.networkmanager.enable = true;
 
