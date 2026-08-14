@@ -1,4 +1,5 @@
 /result
+/.scratch/llama-benchmark-results/
 
 # Local secret/key material. Encrypted sops YAML and the public .sops.yaml
 # policy are intentionally not ignored and must still pass review/checks.

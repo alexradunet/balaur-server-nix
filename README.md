@@ -1,6 +1,14 @@
 # Balaur Server
 
-NixOS configuration for `balaur`, a LAN-accessible development host managed over SSH.
+NixOS configuration for `balaur`, currently on the confirmed household-server
+rebuild path. Older operational sections below describe the pre-rebuild host and
+must not be used to infer deployment authority. The rebuild remains explicitly
+non-deployable until issue 16's physical gates pass.
+
+The safe pre-benchmark llama.cpp ROCm design is documented in
+[`docs/llama-rocm.md`](docs/llama-rocm.md); the production backend remains
+disabled pending physical benchmarks, real encrypted owner keys, and issue 12
+container forwarding.
 
 ## Repository structure
 

@@ -34,6 +34,7 @@
       piPackage = pi.packages.${system}.coding-agent;
       piSubagentsPackage = pkgs.callPackage ./packages/pi-subagents.nix { };
       piWebAccessPackage = pkgs.callPackage ./packages/pi-web-access.nix { };
+      llamaPackage = pkgs.callPackage ./packages/llama-cpp-rocm.nix { };
     in
     {
       packages.${system} = {
@@ -41,6 +42,7 @@
         pi = piPackage;
         pi-subagents = piSubagentsPackage;
         pi-web-access = piWebAccessPackage;
+        llama-cpp-rocm = llamaPackage;
       };
 
       nixosConfigurations.balaur = nixpkgs.lib.nixosSystem {
@@ -90,6 +92,39 @@
         shared-services-vm = pkgs.testers.runNixOSTest (
           import ./tests/shared-services-vm.nix {
             nixarrModule = nixarr.nixosModules.default;
+            sopsModule = sops-nix.nixosModules.sops;
+          }
+        );
+        llama-package = import ./tests/llama-package.nix {
+          inherit pkgs llamaPackage;
+        };
+        llama-service =
+          let
+            readyHost = self.nixosConfigurations.balaur.extendModules {
+              modules = [
+                {
+                  balaur.sharedServices.llama.readiness = {
+                    ready = true;
+                    modelPresetFile = "/srv/models/approved/router.ini";
+                    ownerApiKeyFiles = {
+                      alex = "/run/balaur-secrets/owners/alex/llama/api-key";
+                      andreea = "/run/balaur-secrets/owners/andreea/llama/api-key";
+                    };
+                    # Synthetic evaluation value only. Production must copy the
+                    # measured benchmark target instead of this test fixture.
+                    memoryHighBytes = 34359738368;
+                  };
+                }
+              ];
+            };
+          in
+          import ./tests/llama-service.nix {
+            inherit pkgs llamaPackage;
+            defaultConfig = self.nixosConfigurations.balaur.config;
+            readyConfig = readyHost.config;
+          };
+        llama-service-vm = pkgs.testers.runNixOSTest (
+          import ./tests/llama-service-vm.nix {
             sopsModule = sops-nix.nixosModules.sops;
           }
         );

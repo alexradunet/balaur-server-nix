@@ -11,6 +11,7 @@
     ../../modules/networking.nix
     ../../modules/home-assistant.nix
     ../../modules/media.nix
+    ../../modules/llama.nix
     ../../modules/packages.nix
     ../../modules/storage.nix
   ];

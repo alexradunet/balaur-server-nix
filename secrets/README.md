@@ -85,6 +85,41 @@ qBittorrent unit, VPN namespace, Caddy downloads route, loopback proxy, or host
 peer/UI firewall opening exists. Do not commit a Proton profile, plaintext
 password, generated test value, or fake production payload.
 
+## llama.cpp owner API-key interface
+
+`modules/llama.nix` reserves one independently generated API key in each owner
+policy. llama.cpp b9190 reads multiple keys as one non-empty key per line from
+`--api-key-file`; the unit combines systemd credential copies only inside its
+mode-0700 runtime directory. It never places key values in Nix or command-line
+arguments.
+
+Future encrypted owner payloads must expose two distinct files:
+
+```nix
+balaur.sharedServices.llama.readiness = {
+  ready = true;
+  modelPresetFile = "/srv/models/<benchmark-approved>/router.ini";
+  ownerApiKeyFiles = {
+    alex = "/run/balaur-secrets/owners/alex/llama/<real-runtime-name>";
+    andreea = "/run/balaur-secrets/owners/andreea/llama/<real-runtime-name>";
+  };
+  memoryHighBytes = <measured-peak-plus-reviewed-margin>;
+};
+```
+
+Do not create those names or keys yet. After the benchmark and age/sops
+onboarding, generate separate high-entropy token-shaped values locally under
+hidden input, place each directly into its owner's sops payload, and expose only
+that owner's file to that owner's issue-12 container. The host backend may read
+both through `LoadCredential`; neither owner container may read the other key or
+the combined runtime file. The model preset and measured memory target are also
+mandatory, so keys alone cannot enable the service.
+
+Until issue 12 supplies stable container addresses and source-restricted private
+forwarders, there is no owner container listener or bind. Never work around that
+gate by opening TCP 8081, binding a broad bridge address, or adding raw Caddy
+chat ingress. VM fixture strings are public test data and must never be reused.
+
 ## Why there is no credential wizard yet
 
 A wizard is intentionally not authored at this stage. The encrypted file paths and secret key schema do not exist, so a script would have nowhere safe and reviewable to write the password hash or payloads. Author the wizard from the repository wizard template only after those declarations exist; it must use hidden input, avoid printing values, write only via `sops`, pass `bash -n`/`shellcheck`, and never be run by an agent.
