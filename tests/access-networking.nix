@@ -90,8 +90,18 @@ let
         && config.balaur.network.serverAddress == "192.168.50.2"
         && config.balaur.network.routerAddress == "192.168.50.1"
         && config.balaur.network.householdNames == expectedHouseholdNames
-        && config.balaur.ingress.reverseProxies == { };
-      message = "private DNS and the empty typed reverse-proxy registration seam must remain exact";
+        &&
+          config.balaur.ingress.reverseProxies == {
+            "home-assistant.home.arpa".backend = {
+              host = "127.0.0.1";
+              port = 8123;
+            };
+            "jellyfin.home.arpa".backend = {
+              host = "127.0.0.1";
+              port = 8096;
+            };
+          };
+      message = "private DNS and typed shared-service reverse-proxy registrations must remain exact";
     }
     {
       assertion =
@@ -111,8 +121,10 @@ let
         && config.services.caddy.email == null
         &&
           builtins.attrNames config.services.caddy.virtualHosts == [
+            "home-assistant.home.arpa"
             "http://balaur.home.arpa"
             "https://balaur.home.arpa"
+            "jellyfin.home.arpa"
           ]
         && lib.all (host: host.listenAddresses == [ "192.168.50.2" ] && host.logFormat == null) (
           builtins.attrValues config.services.caddy.virtualHosts
@@ -123,7 +135,7 @@ let
         &&
           lib.hasInfix "respond @health"
             config.services.caddy.virtualHosts."https://balaur.home.arpa".extraConfig;
-      message = "Caddy must expose only the bound internal-CA host health endpoint before services register";
+      message = "Caddy must expose only the bound internal-CA host and registered shared-service routes";
     }
     {
       assertion =
@@ -155,9 +167,14 @@ let
             80
             443
           ]
-          && config.networking.firewall.interfaces.${interface}.allowedUDPPorts == [ 53 ]
+          &&
+            config.networking.firewall.interfaces.${interface}.allowedUDPPorts == [
+              53
+              1900
+              5353
+            ]
         ) trustedInterfaces;
-      message = "only SSH, DNS, and Caddy ingress may be exposed on trusted LAN interfaces";
+      message = "only SSH, DNS, Caddy, and Home Assistant discovery may be exposed on trusted LAN interfaces";
     }
     {
       assertion =

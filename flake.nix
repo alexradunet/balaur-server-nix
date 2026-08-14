@@ -87,6 +87,36 @@
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
         };
+        shared-services-vm = pkgs.testers.runNixOSTest (
+          import ./tests/shared-services-vm.nix {
+            nixarrModule = nixarr.nixosModules.default;
+            sopsModule = sops-nix.nixosModules.sops;
+          }
+        );
+        qbittorrent-vpn-vm = pkgs.testers.runNixOSTest (
+          import ./tests/qbittorrent-vpn-vm.nix {
+            nixarrModule = nixarr.nixosModules.default;
+            sopsModule = sops-nix.nixosModules.sops;
+          }
+        );
+        qbittorrent-ready =
+          let
+            readyHost = self.nixosConfigurations.balaur.extendModules {
+              modules = [
+                {
+                  balaur.sharedServices.qbittorrent.credentials = {
+                    ready = true;
+                    wireguardConfigFile = "/run/balaur-secrets/host/qbittorrent/proton.conf";
+                    webuiPasswordHashFile = "/run/balaur-secrets/host/qbittorrent/webui-pbkdf2";
+                  };
+                }
+              ];
+            };
+          in
+          import ./tests/qbittorrent-ready.nix {
+            inherit pkgs;
+            config = readyHost.config;
+          };
         personal-containers = import ./tests/personal-containers.nix {
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;

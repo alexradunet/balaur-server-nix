@@ -103,16 +103,26 @@ internal CA. HTTP exists only to redirect the host health URL; HTTP/3 and the
 local admin API are disabled, so UDP 443 and TCP 2019 are not listening. There
 is no public ACME configuration.
 
-The only current route is:
+The current routes are:
 
 ```text
-https://balaur.home.arpa/health  ->  200 "balaur ok"
+https://balaur.home.arpa/health       ->  200 "balaur ok"
+https://home-assistant.home.arpa/     ->  127.0.0.1:8123
+https://jellyfin.home.arpa/           ->  127.0.0.1:8096
 ```
 
-All application reverse proxies remain absent. Later service modules must use
-the typed `balaur.ingress.reverseProxies` registration seam; it accepts only an
-approved household name and a private backend address/port. Backend ports are
-never added to the firewall by registration.
+Home Assistant and Jellyfin register through the typed
+`balaur.ingress.reverseProxies` seam. Their raw listeners are loopback-only and
+TCP 8123/8096 are not opened in any host firewall. Home Assistant's retained
+local-device discovery permits only SSDP UDP 1900 and mDNS UDP 5353 on the two
+trusted household interfaces; neither is a web/API listener. Bluetooth is
+enabled for its retained BLE integrations. `downloads.home.arpa` is a DNS
+reservation only: its Caddy route and loopback qBittorrent proxy remain absent
+while the production qBittorrent credential gate is false.
+
+The registration seam accepts only an approved household name and a private
+backend address/port. Backend ports are never added to the firewall by
+registration.
 
 Caddy creates the CA material itself on first start. Never manually generate or
 copy its private key. After an authorized deployment, an administrator may
@@ -126,6 +136,21 @@ Installing that public root in each regular client trust store and testing TLS
 on LAN and WireGuard are human issue-17 gates. Until enrollment, a client will
 correctly report an untrusted issuer. Do not bypass certificate validation for
 normal use.
+
+Home Assistant starts with fresh protected state under `/srv/services`; Jellyfin
+starts with fresh disposable state and requires later creation of separate
+human profiles. No former databases or onboarding state are restored.
+
+qBittorrent is designed to run in the pinned VPN-Confinement network namespace.
+Only its authenticated WebUI is proxied back to host loopback. TCP/UDP 6881 is
+opened only on the WireGuard interface inside that namespace, never on a LAN or
+global host firewall. The namespace receives only a loopback return route; in
+the pinned module this means Proton DNS addresses such as `10.2.0.1` follow the
+default WireGuard route naturally, so the former custom Proton DNS route script
+is neither needed nor retained. A synthetic VM test interrupts WireGuard and
+verifies tracker-like traffic stops while the Caddy WebUI route remains usable.
+Real Proton endpoint, DNS, tracker, and public-IP validation remains a human
+onboarding gate.
 
 ## SMB shares and credential gate
 

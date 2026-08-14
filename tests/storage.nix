@@ -61,6 +61,7 @@ let
   ];
   expectedDisposable = [
     "tank/disposable/media"
+    "tank/disposable/jellyfin"
     "tank/disposable/downloads"
     "tank/disposable/models"
     "tank/disposable/cache"
@@ -74,6 +75,7 @@ let
     "/srv/shared" = "tank/shared";
     "/srv/services" = "tank/services";
     "/srv/media" = "tank/disposable/media";
+    "/srv/services/jellyfin" = "tank/disposable/jellyfin";
     "/srv/downloads" = "tank/disposable/downloads";
     "/srv/models" = "tank/disposable/models";
     "/srv/cache" = "tank/disposable/cache";
@@ -84,6 +86,7 @@ let
     "disposable"
     "disposable/cache"
     "disposable/downloads"
+    "disposable/jellyfin"
     "disposable/media"
     "disposable/models"
     "disposable/temp"

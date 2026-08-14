@@ -48,6 +48,43 @@ remain disabled. When enabled, `samba-credentials.service` receives both files
 through systemd `LoadCredential` and writes Samba's hashed passdb. It never
 uses a Nix-store password or password command-line argument.
 
+## qBittorrent credential interface
+
+`modules/media.nix` reserves two values in the future host-authority encrypted
+payload. The exact secret schema is:
+
+1. `qbittorrent.protonWireguardConfig`: the complete Proton-provided wg-quick
+   configuration. It must contain one `[Interface]` with `PrivateKey`,
+   `Address`, and Proton `DNS`, plus one `[Peer]` with `PublicKey`, an IP-literal
+   `Endpoint`, and `AllowedIPs = 0.0.0.0/0` (and `::/0` only when Proton's
+   supplied profile supports IPv6). The pinned confinement parser requires the
+   endpoint to be an IP address and requires `DNS`; do not substitute the host
+   or router resolver.
+2. `qbittorrent.webuiPasswordPBKDF2`: exactly one line containing the complete
+   qBittorrent-generated serialized value in the form
+   `@ByteArray('<base64-salt>:<base64-hash>')`. It is a password verifier, not a
+   plaintext WebUI password, but remains secret. The username is declaratively
+   fixed to `alex`.
+
+Future reviewed sops declarations must expose these as two distinct root-only
+files below `/run/balaur-secrets/host/qbittorrent/`, order the `qbt` namespace
+and qBittorrent units after sops provisioning, then set:
+
+```nix
+balaur.sharedServices.qbittorrent.credentials = {
+  ready = true;
+  wireguardConfigFile =
+    "/run/balaur-secrets/host/qbittorrent/<real-proton-runtime-name>";
+  webuiPasswordHashFile =
+    "/run/balaur-secrets/host/qbittorrent/<real-webui-runtime-name>";
+};
+```
+
+Those names are interfaces, not files to create now. While `ready = false`, no
+qBittorrent unit, VPN namespace, Caddy downloads route, loopback proxy, or host
+peer/UI firewall opening exists. Do not commit a Proton profile, plaintext
+password, generated test value, or fake production payload.
+
 ## Why there is no credential wizard yet
 
 A wizard is intentionally not authored at this stage. The encrypted file paths and secret key schema do not exist, so a script would have nowhere safe and reviewable to write the password hash or payloads. Author the wizard from the repository wizard template only after those declarations exist; it must use hidden input, avoid printing values, write only via `sops`, pass `bash -n`/`shellcheck`, and never be run by an agent.

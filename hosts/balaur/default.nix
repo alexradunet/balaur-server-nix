@@ -9,6 +9,8 @@
     ../../modules/access.nix
     ../../modules/secrets.nix
     ../../modules/networking.nix
+    ../../modules/home-assistant.nix
+    ../../modules/media.nix
     ../../modules/packages.nix
     ../../modules/storage.nix
   ];

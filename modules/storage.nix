@@ -46,6 +46,13 @@ let
       mountpoint = "/srv/media";
     }
     {
+      # Jellyfin's database, metadata, watch state, cache, and logs are all
+      # replaceable. A separate nested mount prevents tank/services snapshots
+      # from capturing them through the parent mountpoint.
+      dataset = "tank/disposable/jellyfin";
+      mountpoint = "/srv/services/jellyfin";
+    }
+    {
       dataset = "tank/disposable/downloads";
       mountpoint = "/srv/downloads";
     }
