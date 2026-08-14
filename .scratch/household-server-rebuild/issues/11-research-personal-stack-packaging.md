@@ -2,6 +2,7 @@
 
 Status: ready-for-agent
 Blocked by: 03, 04
+Completed: 2026-08-14
 
 ## Objective
 
@@ -19,3 +20,5 @@ For Trilium, Paperless-ngx, Firefly III, Firefly Data Importer/Enable Banking, O
 - Define BT client-IP forwarding and 80-day reauthorization mechanics.
 
 ## Comments
+
+Research completed in `docs/research/personal-stack-packaging.md`: all five applications are available as native pinned NixOS packages/modules; the note defines per-owner container storage/network/secret boundaries, a no-restart plus runtime version migration gate, cold-snapshot backup/restore, and the practical Enable Banking flow and native gaps for Revolut, BCR, and BT.
