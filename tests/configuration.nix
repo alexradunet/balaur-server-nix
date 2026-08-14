@@ -20,13 +20,14 @@ let
     {
       assertion =
         config.nixpkgs.hostPlatform.system == "x86_64-linux"
+        && config.networking.hostId == "8bdbe130"
         &&
           map (boot: boot.path) config.boot.loader.grub.mirroredBoots == [
             "/boot"
             "/boot-fallback"
           ]
-        && config.fileSystems."/".device == "/dev/disk/by-uuid/3833ed98-7e78-4c5c-afa2-326cb47c0fd6";
-      message = "the installed platform, root filesystem, and mirrored GRUB baseline must remain evaluable";
+        && config.fileSystems."/".device == "/dev/md/root";
+      message = "the target platform, stable host identity, disko root, and mirrored GRUB must remain evaluable";
     }
     {
       assertion =

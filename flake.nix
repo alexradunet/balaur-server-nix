@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    disko = {
+      url = "github:nix-community/disko/ff8702b4de27f72b4c78573dfb89ec74e36abdf1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixarr = {
       url = "github:nix-media-server/nixarr";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -14,6 +18,7 @@
     {
       self,
       nixpkgs,
+      disko,
       nixarr,
       pi,
       ...
@@ -39,6 +44,7 @@
           inherit piPackage piSubagentsPackage piWebAccessPackage;
         };
         modules = [
+          disko.nixosModules.disko
           nixarr.nixosModules.default
           ./hosts/balaur/default.nix
         ];
@@ -53,6 +59,15 @@
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
         };
+        disko-scripts = import ./tests/disko-scripts.nix {
+          inherit pkgs;
+          config = self.nixosConfigurations.balaur.config;
+          diskoRevision = disko.rev;
+        };
+        disko-install =
+          (self.nixosConfigurations.balaur.extendModules {
+            modules = [ ./tests/disko-install.nix ];
+          }).config.system.build.installTest;
         access-networking = import ./tests/access-networking.nix {
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
