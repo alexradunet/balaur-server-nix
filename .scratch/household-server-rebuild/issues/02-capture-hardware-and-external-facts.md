@@ -1,7 +1,8 @@
 # Capture hardware and external-system facts
 
-Status: ready-for-human
+Status: needs-info
 Blocked by: 01
+Inventory captured: 2026-08-14
 
 ## Objective
 
@@ -20,3 +21,16 @@ Place non-secret facts in a host facts module or runbook. Put secret values only
 - Missing human values are explicit, not placeholders silently usable in production.
 
 ## Comments
+
+Read-only observed facts are recorded in `docs/research/household-hardware-inventory.md`. Both NVMe devices passed SMART with zero media errors, both current md members were healthy, and both existing EFI payloads were present.
+
+The attached SanDisk `BALAUR_BACKUP` device is the existing 123,009,761,280-byte backup and is explicitly excluded from provisioning.
+
+Still needed from the Owner:
+
+- Attach the two new nominal 256 GB USB devices later for identity capture.
+- Select SMTP relay and alert destination.
+- Choose shared-media SMB write policy.
+- Confirm retained Alex SSH keys.
+- Confirm whether Andreea may use local TTY login.
+- Identify client devices that need the Caddy CA.
