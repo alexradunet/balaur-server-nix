@@ -53,8 +53,8 @@
     machine.succeed("for dataset in tank/users/alex/home tank/users/andreea/home; do test \"$(zfs get -H -o value exec $dataset)\" = on; test \"$(zfs get -H -o value canmount $dataset)\" = noauto; done")
     machine.succeed("for dataset in tank/users/alex/apps tank/users/andreea/apps tank/shared tank/services tank/disposable/media tank/disposable/downloads tank/disposable/models tank/disposable/cache tank/disposable/temp; do test \"$(zfs get -H -o value exec $dataset)\" = off; test \"$(zfs get -H -o value canmount $dataset)\" = noauto; test \"$(zfs get -H -o value devices $dataset)\" = off; test \"$(zfs get -H -o value setuid $dataset)\" = off; done")
     machine.succeed("systemctl is-active zfs-mount.service")
-    machine.succeed("test \"$(stat -c '%U:%G:%a' /home/alex)\" = alex:users:700")
-    machine.succeed("su -s /bin/sh alex -c 'touch /home/alex/.storage-write-test && rm /home/alex/.storage-write-test'")
+    machine.succeed("for owner in alex andreea; do test \"$(stat -c '%U:%G:%a' /home/$owner)\" = $owner:users:700; test \"$(stat -c '%U:%G:%a' /srv/people/$owner/apps)\" = $owner:users:700; su -s /bin/sh $owner -c \"touch /home/$owner/.storage-write-test && rm /home/$owner/.storage-write-test\"; done")
+    machine.fail("su - andreea -c true")
     machine.succeed("test \"$(cat /sys/module/zfs/parameters/zfs_arc_max)\" = 8589934592")
   '';
 }

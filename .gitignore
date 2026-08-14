@@ -1,1 +1,15 @@
 /result
+
+# Local secret/key material. Encrypted sops YAML and the public .sops.yaml
+# policy are intentionally not ignored and must still pass review/checks.
+/.age-key*
+/age-key*
+/secrets/**/*.agekey
+/secrets/**/*.clear
+/secrets/**/*.dec
+/secrets/**/*.env
+/secrets/**/*.hash
+/secrets/**/*.key
+/secrets/**/*.pem
+/secrets/**/*.plaintext
+/secrets/**/*.txt

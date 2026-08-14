@@ -7,6 +7,7 @@
     ../../modules/base.nix
     ../../modules/boot.nix
     ../../modules/access.nix
+    ../../modules/secrets.nix
     ../../modules/networking.nix
     ../../modules/packages.nix
     ../../modules/storage.nix

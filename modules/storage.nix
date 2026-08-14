@@ -197,11 +197,5 @@ in
     # The unsuffixed value is exactly 8 * 1024^3 bytes.
     boot.kernelParams = [ "zfs.zfs_arc_max=8589934592" ];
 
-    # Issue 07 creates Andreea and owns her mounts. Only paths whose owner
-    # already exists are adjusted here, after local ZFS mounts are available.
-    systemd.tmpfiles.rules = [
-      "d /home/alex 0700 alex users -"
-      "d /srv/people/alex/apps 0700 alex users -"
-    ];
   };
 }

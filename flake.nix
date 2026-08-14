@@ -11,6 +11,10 @@
       url = "github:nix-media-server/nixarr";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix/a8627b21b9107c5711c96b84f32a9a4b3d45295f";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     pi.url = "github:lukasl-dev/pi.nix";
   };
 
@@ -20,6 +24,7 @@
       nixpkgs,
       disko,
       nixarr,
+      sops-nix,
       pi,
       ...
     }:
@@ -46,6 +51,7 @@
         modules = [
           disko.nixosModules.disko
           nixarr.nixosModules.default
+          sops-nix.nixosModules.sops
           ./hosts/balaur/default.nix
         ];
       };
@@ -69,6 +75,10 @@
             modules = [ ./tests/disko-install.nix ];
           }).config.system.build.installTest;
         access-networking = import ./tests/access-networking.nix {
+          inherit pkgs;
+          config = self.nixosConfigurations.balaur.config;
+        };
+        secrets = import ./tests/secrets.nix {
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
         };
