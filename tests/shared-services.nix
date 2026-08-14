@@ -5,7 +5,6 @@ let
   serviceNames = builtins.attrNames config.systemd.services;
   forbiddenServices = [
     "balaur-dashboard"
-    "caddy"
     "home-assistant"
     "jellyfin"
     "prowlarr"
@@ -15,12 +14,15 @@ let
   ];
   assertions = [
     {
-      assertion = !config.nixarr.enable && !config.services.caddy.enable;
-      message = "nixarr and Caddy must remain available but disabled until their target tickets";
+      assertion =
+        !config.nixarr.enable
+        && config.services.caddy.enable
+        && config.balaur.ingress.reverseProxies == { };
+      message = "Caddy ingress must be enabled without inventing shared application routes";
     }
     {
       assertion = lib.all (service: !builtins.elem service serviceNames) forbiddenServices;
-      message = "dashboard and legacy shared-service units must not evaluate in the baseline";
+      message = "dashboard and application shared-service units must not evaluate before issue 09";
     }
   ];
   failures = map (entry: entry.message) (builtins.filter (entry: !entry.assertion) assertions);

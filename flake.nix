@@ -78,6 +78,7 @@
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
         };
+        network-access-vm = pkgs.testers.runNixOSTest (import ./tests/network-access-vm.nix);
         secrets = import ./tests/secrets.nix {
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;

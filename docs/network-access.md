@@ -1,34 +1,87 @@
-# Balaur remote network access
+# Balaur private network access
 
-Balaur is reachable from the home LAN and from remote clients through the ASUS
-router's WireGuard VPN. The VPN is split-tunnel: only home-network traffic is
-sent through WireGuard; ordinary internet traffic remains on the client’s
-normal connection.
+This document supersedes the former raw-IP dashboard and Trilium port
+instructions. Those application services are intentionally absent during the
+household rebuild, and their old ports remain closed.
 
-## ASUS WireGuard server
+Balaur is private to the home LAN. Remote access is provided by the ASUS
+RT-AX82U WireGuard server and routed back to the LAN; Balaur does not terminate
+WireGuard itself.
 
-Use **VPN → VPN Server → WireGuard**, not VPN Fusion or the site-to-site setup.
-Create a separate client profile for every phone or laptop.
+## Fixed network boundary
 
-For each client:
+- Server reservation/target: `192.168.50.2` on `192.168.50.0/24`.
+- ASUS router/forwarding resolver: `192.168.50.1`.
+- Trusted server interfaces: `enp100s0` and Wi-Fi fallback `wlp98s0`.
+- No service is intentionally reachable from a WAN interface.
+- Do not create router port forwards, DMZ-host rules, public ACME challenges,
+  or public DNS records for any name in this document.
 
-- Enable **Access Intranet**.
-- Enable **NAT** under Advanced Settings. This lets Balaur see VPN traffic as
-  LAN traffic and avoids adding WireGuard interfaces to the host firewall.
-- Enable **Allow DNS** if the client should use the router for home DNS.
-- Enable the **Pre-shared key** and let ASUS generate the secret.
-- Keep the router-generated tunnel network, normally `10.6.0.0/24`.
-- Give each client a unique address, such as `10.6.0.2/32` or `10.6.0.3/32`.
-- The server-side allowed IP for a client should be that client address, for
-  example `10.6.0.3/32`.
+Recheck the `192.168.50.2` reservation before installation. The configuration
+opens ports only in the per-interface firewall rules; the global firewall
+allowlists remain empty.
 
-Export the profile or scan its QR code in the official WireGuard app. The
-client profile should use split-tunnel routes:
+## Local `home.arpa` DNS
+
+CoreDNS is authoritative only for `home.arpa`, binds to `192.168.50.2`, and
+serves these exact private A records at `192.168.50.2`:
+
+- `balaur.home.arpa`
+- `notes.alex.home.arpa`, `paperless.alex.home.arpa`,
+  `budget.alex.home.arpa`, `chat.alex.home.arpa`
+- `notes.andreea.home.arpa`, `paperless.andreea.home.arpa`,
+  `budget.andreea.home.arpa`, `chat.andreea.home.arpa`
+- `home-assistant.home.arpa`, `jellyfin.home.arpa`,
+  `downloads.home.arpa`
+
+Names do not imply that an application exists yet. Unknown `home.arpa` names
+return NXDOMAIN. Queries outside the household zone are forwarded only to the
+ASUS resolver at `192.168.50.1`. Routine DNS query logging is not enabled.
+TCP and UDP 53 are allowed only on the trusted LAN interfaces.
+
+The server being down therefore makes household application names unavailable.
+That is an accepted trade-off; no secondary public zone or resolver is added.
+
+### Human router and LAN DNS gate
+
+No router setting has been changed by this repository. Before relying on the
+names:
+
+1. In the ASUS LAN DHCP settings, advertise `192.168.50.2` as the client DNS
+   server. Do not change the router's own upstream/WAN resolver to
+   `192.168.50.2`, because CoreDNS forwards non-household queries back to the
+   router and that would create a loop.
+2. Renew one LAN client's DHCP lease and confirm its effective resolver is
+   `192.168.50.2`.
+3. Run both an authoritative and forwarded lookup:
+
+   ```console
+   nslookup balaur.home.arpa 192.168.50.2
+   nslookup example.com 192.168.50.2
+   ```
+
+4. Confirm an unknown name such as `missing.home.arpa` does not resolve.
+
+If this ASUS firmware cannot advertise a custom LAN DNS server without also
+changing its upstream resolver, configure `192.168.50.2` directly on household
+clients and record the firmware limitation before deployment. Do not silently
+fall back to public `home.arpa` publication.
+
+## ASUS WireGuard DNS gate
+
+Use **VPN -> VPN Server -> WireGuard**, not VPN Fusion or a site-to-site
+profile. Keep one ASUS-generated profile per client, **Access Intranet** on,
+NAT on, a pre-shared key on, and split-tunnel routes. Keep all private keys out
+of this repository.
+
+The previously documented `DNS = 10.6.0.1` is not sufficient unless that exact
+router firmware is first proven to relay `home.arpa` to Balaur. The target
+client profile is:
 
 ```ini
 [Interface]
 Address = 10.6.0.3/32
-DNS = 10.6.0.1
+DNS = 192.168.50.2
 
 [Peer]
 AllowedIPs = 10.6.0.1/32, 192.168.50.0/24
@@ -36,38 +89,82 @@ Endpoint = YOUR_PUBLIC_WAN_ADDRESS:51820
 PersistentKeepalive = 25
 ```
 
-Keep the ASUS-generated `PrivateKey` and router `PublicKey`; never commit a
-WireGuard configuration or share its private key. If a private key is exposed,
-delete that client profile in ASUS and generate a replacement.
+Treat the DNS line as a human validation gate: ASUS may regenerate it as
+`10.6.0.1` when **Allow DNS** is enabled. Export a disposable profile, inspect
+the effective client configuration, and edit only that client's DNS setting if
+necessary. Do not claim this gate complete until a client on mobile data, with
+Wi-Fi disabled, can perform both lookups above through WireGuard. Also confirm
+ordinary internet traffic still uses the client's normal connection.
 
-`192.168.50.0/24` routes the whole home LAN, including Balaur at
-`192.168.50.2`. `10.6.0.1/32` routes the router's WireGuard address. Do not use
-`0.0.0.0/0` unless all client internet traffic should go through home.
+## Caddy private TLS ingress
 
-## Services
+Caddy binds TCP 80 and 443 at `192.168.50.2` and uses its runtime-generated
+internal CA. HTTP exists only to redirect the host health URL; HTTP/3 and the
+local admin API are disabled, so UDP 443 and TCP 2019 are not listening. There
+is no public ACME configuration.
 
-With WireGuard active, remote clients can use the same addresses as LAN
-clients:
+The only current route is:
 
-- SSH: `ssh alex@192.168.50.2`
-- Dashboard: `http://192.168.50.2`
-- Trilium desktop/browser: `https://192.168.50.2:8084`
-- Pocket Trilium fallback: `http://192.168.50.2:8085`
-- ASUS router: `http://192.168.50.1`
-
-Port 8085 is a deliberate HTTP-only compatibility endpoint for Pocket
-Trilium, whose embedded environment may not trust the private Caddy CA. It is
-firewall-limited to the LAN interfaces and must not be forwarded from the
-router WAN. Use HTTPS on port 8084 everywhere that can trust the Caddy root CA.
-
-To test genuine remote access, connect the client through mobile data or a
-separate network rather than the home Wi-Fi. On Windows, use PowerShell:
-
-```powershell
-Test-NetConnection 192.168.50.2 -Port 22
-Test-NetConnection 192.168.50.2 -Port 8085
+```text
+https://balaur.home.arpa/health  ->  200 "balaur ok"
 ```
 
-The WireGuard application should also show a recent handshake and received
-traffic. A client profile can reach the LAN only when the router has a public
-WAN address and the WireGuard server profile is enabled.
+All application reverse proxies remain absent. Later service modules must use
+the typed `balaur.ingress.reverseProxies` registration seam; it accepts only an
+approved household name and a private backend address/port. Backend ports are
+never added to the firewall by registration.
+
+Caddy creates the CA material itself on first start. Never manually generate or
+copy its private key. After an authorized deployment, an administrator may
+export only the public root certificate from:
+
+```text
+/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
+```
+
+Installing that public root in each regular client trust store and testing TLS
+on LAN and WireGuard are human issue-17 gates. Until enrollment, a client will
+correctly report an untrusted issuer. Do not bypass certificate validation for
+normal use.
+
+## SMB shares and credential gate
+
+Samba is declared with SMB2/3 only, standalone user security, guest mapping
+disabled, anonymous access restricted, NetBIOS/nmbd and winbind disabled, and
+only TCP 445. It binds only to the trusted LAN interfaces. These are the only
+exports:
+
+| Share | Host path | Read | Write through SMB |
+| --- | --- | --- | --- |
+| `alex` | `/home/alex/files` | Alex | Alex |
+| `andreea` | `/home/andreea/files` | Andreea | Andreea |
+| `media` | `/srv/media` | Alex and Andreea | Alex only |
+
+Full home directories, owner app roots, secret roots, downloads, and Paperless
+consume paths are not exported. The non-privileged `media` group provides host
+filesystem access to shared media. Andreea remains nologin, has no SSH keys,
+no wheel membership, and no sudo rule; media membership grants none of those
+capabilities.
+
+Production Samba is currently fail-closed: `balaur.samba.credentials.ready` is
+false, smbd is disabled, and TCP 445 is closed. Human onboarding must create
+distinct real sops-nix values exposed at runtime beneath
+`/run/balaur-secrets/host/samba/`, set both typed `passwordFiles`, and only then
+set `ready = true`. The activation unit loads those files with systemd
+credentials and updates passdb without putting passwords in Nix or command-line
+arguments. Do not add placeholder passwords or plaintext files to the host
+configuration.
+
+## Router/WAN validation before completion
+
+From the ASUS administration UI, a human must record that:
+
+1. WAN port forwarding/virtual server has no rule for Balaur, especially TCP or
+   UDP 53, TCP 80/443/445, SSH 22, or any old raw application port.
+2. DMZ host is disabled and UPnP has not created an equivalent mapping.
+3. The WireGuard profile alone provides remote reachability.
+4. LAN and mobile-data WireGuard tests pass for DNS and trusted private TLS.
+
+The server firewall cannot prove the absence of router NAT rules, so issue 08
+must remain `needs-info` until this check, DNS advertisement, CA enrollment, and
+real Samba credential onboarding are performed.

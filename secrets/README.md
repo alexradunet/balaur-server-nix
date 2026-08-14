@@ -18,13 +18,35 @@ Perform these steps on a trusted machine, with backup media and terminals under 
 1. Generate one new dedicated age identity with `age-keygen`, writing it directly to protected offline storage under `umask 077`. Do not reuse an SSH key and do not paste the private identity into this repository, chat, shell history, or a ticket.
 2. Derive the public recipient from that offline identity with `age-keygen -y`. Keep the private identity offline; the recipient is public.
 3. Copy `.sops.yaml.example` to `.sops.yaml`. Replace the deliberately empty rules with three exact path rules for the future host, Alex, and Andreea encrypted files. Put only the real public recipient from step 2 in those rules. Do not invent or copy a sample recipient. Review and commit `.sops.yaml` because it contains public policy only.
-4. Create the three owner-separated files with `sops` only after the consuming module defines the exact schema. Confirm each file has sops metadata and cannot be decrypted without the offline identity. Commit ciphertext only.
+4. Create the three owner-separated files with `sops` only after each consuming module defines its exact schema. Issue 08 now reserves two host-authority Samba values (one password per owner), but no encrypted host file path or payload is declared yet. Confirm every eventual file has sops metadata and cannot be decrypted without the offline identity. Commit ciphertext only.
 5. Provision a controlled copy of the same private identity to `/var/lib/sops-nix/key.txt` as `root:root` mode `0600`. Retain the recovery source offline and disconnected. Do not enable automatic key generation.
 6. Once the host secret schema declares Alex's password-hash runtime file, generate a strong new Alex password locally with the human present and create a yescrypt hash using an interactive, no-echo password prompt. Insert the hash directly through the `sops` editor; do not save either plaintext password or a decrypted/hash scratch file in the repository. Wire that runtime file to `users.users.alex.hashedPasswordFile`.
 7. Build first. In an already authenticated recovery session, deploy only after the issue-16 gates authorize it. Open a second SSH session, verify Alex can run password-authenticated `sudo`, and keep the first session open until recovery access is proven.
 8. Set `balaur.access.bootstrapPasswordlessSudo = false`, rebuild, and verify `sudo` again. Issue 16 remains blocked while the option is true or Alex's runtime hash is absent.
 
 Do not remove the bootstrap sudo exception before step 7: Alex currently has no configured Unix password hash, so doing so would silently remove administrative recovery access.
+
+## Samba credential interface
+
+`modules/networking.nix` defines a fail-closed runtime interface without adding
+secret material. Future host-authority sops declarations must provide two
+distinct files below `/run/balaur-secrets/host/samba/`, then set:
+
+```nix
+balaur.samba.credentials = {
+  ready = true;
+  passwordFiles = {
+    alex = "/run/balaur-secrets/host/samba/<real-runtime-name>";
+    andreea = "/run/balaur-secrets/host/samba/<real-runtime-name>";
+  };
+};
+```
+
+The names above are schema placeholders, not files to create in plaintext.
+Until real encrypted declarations exist, keep `ready = false`; smbd and TCP 445
+remain disabled. When enabled, `samba-credentials.service` receives both files
+through systemd `LoadCredential` and writes Samba's hashed passdb. It never
+uses a Nix-store password or password command-line argument.
 
 ## Why there is no credential wizard yet
 

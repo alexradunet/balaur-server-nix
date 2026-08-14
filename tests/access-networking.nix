@@ -23,6 +23,23 @@ let
     "d /srv/people/alex/apps 0700 alex users -"
     "d /home/andreea 0700 andreea users -"
     "d /srv/people/andreea/apps 0700 andreea users -"
+    "d /home/alex/files 0700 alex users -"
+    "d /home/andreea/files 0700 andreea users -"
+    "d /srv/media 2750 alex media -"
+  ];
+  expectedHouseholdNames = [
+    "balaur.home.arpa"
+    "notes.alex.home.arpa"
+    "paperless.alex.home.arpa"
+    "budget.alex.home.arpa"
+    "chat.alex.home.arpa"
+    "notes.andreea.home.arpa"
+    "paperless.andreea.home.arpa"
+    "budget.andreea.home.arpa"
+    "chat.andreea.home.arpa"
+    "home-assistant.home.arpa"
+    "jellyfin.home.arpa"
+    "downloads.home.arpa"
   ];
   assertions = [
     {
@@ -43,6 +60,7 @@ let
         && alex.home == "/home/alex"
         && alex.homeMode == "0700"
         && builtins.elem "wheel" alex.extraGroups
+        && builtins.elem "media" alex.extraGroups
         && alex.openssh.authorizedKeys.keys == expectedAlexKeys;
       message = "Alex must retain exactly both observed SSH keys and a dynamic owner ID";
     }
@@ -55,15 +73,57 @@ let
         && andreea.hashedPassword == "!"
         && andreea.hashedPasswordFile == null
         && andreea.shell == "${pkgs.shadow}/bin/nologin"
-        && andreea.extraGroups == [ ]
+        && andreea.extraGroups == [ "media" ]
         && andreea.openssh.authorizedKeys.keys == [ ]
         && !(builtins.elem "wheel" andreea.extraGroups)
+        && !(builtins.elem "networkmanager" andreea.extraGroups)
         && andreeaSudoRules == [ ];
       message = "Andreea must have a locked password, nologin shell, dynamic ID, and no SSH or sudo authority";
     }
     {
       assertion = lib.all (rule: builtins.elem rule config.systemd.tmpfiles.rules) ownerTmpfilesRules;
-      message = "both ZFS owner home/apps mounts must receive private owner-specific modes";
+      message = "owner storage, exact SMB exports, and media ownership must receive explicit modes";
+    }
+    {
+      assertion =
+        config.balaur.network.trustedInterfaces == trustedInterfaces
+        && config.balaur.network.serverAddress == "192.168.50.2"
+        && config.balaur.network.routerAddress == "192.168.50.1"
+        && config.balaur.network.householdNames == expectedHouseholdNames
+        && config.balaur.ingress.reverseProxies == { };
+      message = "private DNS and the empty typed reverse-proxy registration seam must remain exact";
+    }
+    {
+      assertion =
+        config.services.coredns.enable
+        && lib.hasInfix "home.arpa:53" config.services.coredns.config
+        && lib.hasInfix "bind 192.168.50.2" config.services.coredns.config
+        && lib.hasInfix "forward . 192.168.50.1" config.services.coredns.config
+        && !(lib.hasInfix "log" config.services.coredns.config);
+      message = "CoreDNS must authoritatively serve home.arpa, forward elsewhere only to ASUS, and omit query logging";
+    }
+    {
+      assertion =
+        config.services.caddy.enable
+        && !config.services.caddy.enableReload
+        && !config.services.caddy.openFirewall
+        && config.services.caddy.acmeCA == null
+        && config.services.caddy.email == null
+        &&
+          builtins.attrNames config.services.caddy.virtualHosts == [
+            "http://balaur.home.arpa"
+            "https://balaur.home.arpa"
+          ]
+        && lib.all (host: host.listenAddresses == [ "192.168.50.2" ] && host.logFormat == null) (
+          builtins.attrValues config.services.caddy.virtualHosts
+        )
+        &&
+          lib.hasInfix "tls internal"
+            config.services.caddy.virtualHosts."https://balaur.home.arpa".extraConfig
+        &&
+          lib.hasInfix "respond @health"
+            config.services.caddy.virtualHosts."https://balaur.home.arpa".extraConfig;
+      message = "Caddy must expose only the bound internal-CA host health endpoint before services register";
     }
     {
       assertion =
@@ -89,10 +149,15 @@ let
         && config.networking.firewall.allowedUDPPorts == [ ]
         && lib.all (
           interface:
-          config.networking.firewall.interfaces.${interface}.allowedTCPPorts == [ 22 ]
-          && config.networking.firewall.interfaces.${interface}.allowedUDPPorts == [ ]
+          config.networking.firewall.interfaces.${interface}.allowedTCPPorts == [
+            22
+            53
+            80
+            443
+          ]
+          && config.networking.firewall.interfaces.${interface}.allowedUDPPorts == [ 53 ]
         ) trustedInterfaces;
-      message = "the baseline firewall must expose only SSH on trusted LAN interfaces";
+      message = "only SSH, DNS, and Caddy ingress may be exposed on trusted LAN interfaces";
     }
     {
       assertion =
@@ -108,9 +173,10 @@ let
             ) trustedInterfaces
           )
           [
-            53
-            80
-            443
+            137
+            138
+            139
+            445
             6881
             8080
             8081
@@ -122,7 +188,34 @@ let
             9696
             11000
           ];
-      message = "DNS, proxy, dashboard, and raw application ports must remain closed";
+      message = "credential-gated SMB, NetBIOS, dashboard, and raw application ports must remain closed";
+    }
+    {
+      assertion =
+        !config.balaur.samba.credentials.ready
+        && config.balaur.samba.credentials.passwordFiles.alex == null
+        && config.balaur.samba.credentials.passwordFiles.andreea == null
+        && !config.services.samba.enable
+        && !config.services.samba.openFirewall
+        && !config.services.samba.nmbd.enable
+        && !config.services.samba.winbindd.enable
+        &&
+          builtins.attrNames config.services.samba.settings == [
+            "alex"
+            "andreea"
+            "global"
+            "media"
+          ]
+        && config.services.samba.settings.alex.path == "/home/alex/files"
+        && config.services.samba.settings.andreea.path == "/home/andreea/files"
+        && config.services.samba.settings.media.path == "/srv/media"
+        && config.services.samba.settings.media."write list" == [ "alex" ]
+        && config.services.samba.settings.global."server min protocol" == "SMB2"
+        && config.services.samba.settings.global."server max protocol" == "SMB3"
+        && config.services.samba.settings.global."smb ports" == "445"
+        && config.services.samba.settings.global."map to guest" == "Never"
+        && lib.any (warning: lib.hasInfix "Samba is fail-closed" warning) config.warnings;
+      message = "Samba policy must remain hardened and credential-gated with exactly three exports";
     }
   ];
   failures = map (entry: entry.message) (builtins.filter (entry: !entry.assertion) assertions);
