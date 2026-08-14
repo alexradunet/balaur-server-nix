@@ -2,6 +2,7 @@
 
 Status: ready-for-agent
 Blocked by: 01
+Completed: 2026-08-14
 
 ## Objective
 
@@ -22,3 +23,5 @@ Prove the package/tooling intersection before implementation depends on it.
 - Unsupported or uncertain behavior is documented with a tested alternative.
 
 ## Comments
+
+Verification completed in `docs/research/household-platform-compatibility.md`: pinned Linux 6.18.43/OpenZFS 2.4.3 and ROCm 7.2.3 llama.cpp `gfx1150` builds pass; corrected disko script proofs establish dual ESP, md RAID1 ext4, fixed-tail, and mirrored-ZFS syntax; parent quota and explicit non-recursive snapshot semantics are recorded with caveats.
