@@ -3,6 +3,9 @@
 let
   inherit (pkgs) lib;
   devices = config.disko.devices;
+  tank = devices.zpool.tank;
+  policy = config.balaur.storage;
+
   expectedDevices = {
     crucial = "/dev/disk/by-id/nvme-CT1000P3PSSD8_24454C2CAAFE";
     kingston = "/dev/disk/by-id/nvme-KINGSTON_SNV3S1000G_50026B76870B8ECD";
@@ -47,6 +50,60 @@ let
         contentType = partition.content.type;
       })
       (lib.sort (left: right: left._index < right._index) (builtins.attrValues disk.content.partitions));
+
+  expectedProtected = [
+    "tank/users/alex/home"
+    "tank/users/alex/apps"
+    "tank/users/andreea/home"
+    "tank/users/andreea/apps"
+    "tank/shared"
+    "tank/services"
+  ];
+  expectedDisposable = [
+    "tank/disposable/media"
+    "tank/disposable/downloads"
+    "tank/disposable/models"
+    "tank/disposable/cache"
+    "tank/disposable/temp"
+  ];
+  expectedMounts = {
+    "/home/alex" = "tank/users/alex/home";
+    "/home/andreea" = "tank/users/andreea/home";
+    "/srv/people/alex/apps" = "tank/users/alex/apps";
+    "/srv/people/andreea/apps" = "tank/users/andreea/apps";
+    "/srv/shared" = "tank/shared";
+    "/srv/services" = "tank/services";
+    "/srv/media" = "tank/disposable/media";
+    "/srv/downloads" = "tank/disposable/downloads";
+    "/srv/models" = "tank/disposable/models";
+    "/srv/cache" = "tank/disposable/cache";
+    "/srv/temp" = "tank/disposable/temp";
+  };
+  expectedDatasets = [
+    "__root"
+    "disposable"
+    "disposable/cache"
+    "disposable/downloads"
+    "disposable/media"
+    "disposable/models"
+    "disposable/temp"
+    "services"
+    "shared"
+    "users"
+    "users/alex"
+    "users/alex/apps"
+    "users/alex/home"
+    "users/andreea"
+    "users/andreea/apps"
+    "users/andreea/home"
+  ];
+  structuralDatasets = [
+    "users"
+    "users/alex"
+    "users/andreea"
+    "disposable"
+  ];
+  leafDatasets = map (name: lib.removePrefix "tank/" name) (expectedProtected ++ expectedDisposable);
   obsoleteMounts = [
     "/srv/app-data"
     "/srv/personal"
@@ -86,26 +143,97 @@ let
         lib.all (disk: disk.content.partitions.tank.content.pool == "tank") (
           builtins.attrValues devices.disk
         )
-        && devices.zpool.tank.mode == "mirror"
-        && devices.zpool.tank.options == { }
-        && devices.zpool.tank.rootFsOptions == { }
-        && builtins.attrNames devices.zpool.tank.datasets == [ "__root" ];
-      message = "tank must be a property-minimal two-member mirror without issue-06 datasets";
+        && tank.mode == "mirror"
+        && tank.options == { ashift = "12"; }
+        &&
+          tank.rootFsOptions == {
+            acltype = "posixacl";
+            atime = "off";
+            canmount = "off";
+            checksum = "on";
+            compression = "lz4";
+            devices = "off";
+            mountpoint = "none";
+            setuid = "off";
+            xattr = "sa";
+          };
+      message = "tank must remain a two-member mirror with conservative creation and inherited root properties";
+    }
+    {
+      assertion = builtins.attrNames tank.datasets == expectedDatasets;
+      message = "tank must contain exactly the explicit owner, protected, and disposable dataset tree";
     }
     {
       assertion =
-        builtins.attrNames config.fileSystems == [
-          "/"
-          "/boot"
-          "/boot-fallback"
-        ]
-        && config.fileSystems."/".device == "/dev/md/root"
+        policy.ownerQuotaBytes == 220000000000
+        && policy.ownerWarningBytes == 180000000000
+        && tank.datasets."users/alex".options.quota == "220000000000"
+        && tank.datasets."users/andreea".options.quota == "220000000000"
+        && !(tank.datasets."users/alex".options ? refquota)
+        && !(tank.datasets."users/andreea".options ? refquota);
+      message = "each owner parent must carry the exact unsuffixed decimal quota, never a refquota";
+    }
+    {
+      assertion = lib.all (
+        name:
+        tank.datasets.${name}.mountpoint == null
+        && tank.datasets.${name}.options.mountpoint == "none"
+        && tank.datasets.${name}.options.canmount == "off"
+      ) structuralDatasets;
+      message = "owner and hierarchy parents must be explicit non-mountable, non-writable structural datasets";
+    }
+    {
+      assertion = lib.all (
+        mountpoint:
+        let
+          fs = config.fileSystems.${mountpoint};
+        in
+        fs.device == expectedMounts.${mountpoint}
+        && fs.fsType == "zfs"
+        && builtins.elem "zfsutil" fs.options
+        && !builtins.elem "nofail" fs.options
+      ) (builtins.attrNames expectedMounts);
+      message = "every protected/disposable leaf must be a mandatory ZFS mount at its declared host path";
+    }
+    {
+      assertion = lib.all (
+        name:
+        let
+          leaf = tank.datasets.${name};
+        in
+        leaf.options.canmount == "noauto"
+        && leaf.options.devices == "off"
+        && leaf.options.setuid == "off"
+        && leaf.options.exec == (if lib.hasSuffix "/home" name then "on" else "off")
+      ) leafDatasets;
+      message = "leaf execution, device, and setuid properties must be explicit and safe for their use";
+    }
+    {
+      assertion =
+        policy.protectedLeafDatasets == expectedProtected
+        && policy.disposableDatasets == expectedDisposable
+        && lib.intersectLists policy.protectedLeafDatasets policy.disposableDatasets == [ ]
+        && lib.all (name: builtins.elem (lib.removePrefix "tank/" name) leafDatasets) (
+          policy.protectedLeafDatasets ++ policy.disposableDatasets
+        );
+      message = "the typed protected allowlist and disposable list must be explicit, complete, and disjoint";
+    }
+    {
+      assertion =
+        builtins.filter (lib.hasPrefix "zfs.zfs_arc_max=") config.boot.kernelParams == [
+          "zfs.zfs_arc_max=8589934592"
+        ];
+      message = "OpenZFS ARC must be capped at exactly 8 GiB through its kernel module parameter";
+    }
+    {
+      assertion =
+        config.fileSystems."/".device == "/dev/md/root"
         && config.fileSystems."/".fsType == "ext4"
         && config.fileSystems."/boot".device == "/dev/disk/by-partlabel/disk-crucial-ESP"
         && config.fileSystems."/boot".fsType == "vfat"
         && config.fileSystems."/boot-fallback".device == "/dev/disk/by-partlabel/disk-kingston-ESP"
         && config.fileSystems."/boot-fallback".fsType == "vfat";
-      message = "disko alone must own root and both independent ESP runtime mount declarations";
+      message = "disko must retain md root and both independent ESP runtime mounts";
     }
     {
       assertion =
@@ -138,7 +266,7 @@ let
     }
     {
       assertion = lib.all (mount: !builtins.hasAttr mount config.fileSystems) obsoleteMounts;
-      message = "legacy mounts and issue-06 dataset mounts must remain absent";
+      message = "legacy ext4 data mounts must remain absent";
     }
   ];
   failures = map (entry: entry.message) (builtins.filter (entry: !entry.assertion) assertions);

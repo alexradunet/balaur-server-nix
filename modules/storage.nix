@@ -1,124 +1,207 @@
-{ piSubagentsPackage, piWebAccessPackage, pkgs, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 
 let
-  piFastFlowLMModels = pkgs.writeText "pi-fastflowlm-models.json" (builtins.toJSON {
-    providers.fastflowlm = {
-      baseUrl = "http://127.0.0.1:8081/v1";
-      api = "openai-completions";
-      # FastFlowLM does not require authentication, but pi needs a value before
-      # it will offer a custom provider in /model.
-      apiKey = "fastflowlm";
-      compat = {
-        supportsDeveloperRole = false;
-        supportsReasoningEffort = false;
-        # FastFlowLM closes a successful SSE stream without a finish_reason.
-        supportsFinishReason = false;
+  cfg = config.balaur.storage;
+
+  protectedLeaves = [
+    {
+      dataset = "tank/users/alex/home";
+      mountpoint = "/home/alex";
+      exec = "on";
+    }
+    {
+      dataset = "tank/users/alex/apps";
+      mountpoint = "/srv/people/alex/apps";
+      exec = "off";
+    }
+    {
+      dataset = "tank/users/andreea/home";
+      mountpoint = "/home/andreea";
+      exec = "on";
+    }
+    {
+      dataset = "tank/users/andreea/apps";
+      mountpoint = "/srv/people/andreea/apps";
+      exec = "off";
+    }
+    {
+      dataset = "tank/shared";
+      mountpoint = "/srv/shared";
+      exec = "off";
+    }
+    {
+      dataset = "tank/services";
+      mountpoint = "/srv/services";
+      exec = "off";
+    }
+  ];
+
+  disposableLeaves = [
+    {
+      dataset = "tank/disposable/media";
+      mountpoint = "/srv/media";
+    }
+    {
+      dataset = "tank/disposable/downloads";
+      mountpoint = "/srv/downloads";
+    }
+    {
+      dataset = "tank/disposable/models";
+      mountpoint = "/srv/models";
+    }
+    {
+      dataset = "tank/disposable/cache";
+      mountpoint = "/srv/cache";
+    }
+    {
+      dataset = "tank/disposable/temp";
+      mountpoint = "/srv/temp";
+    }
+  ];
+
+  relativeName = lib.removePrefix "tank/";
+  mkLeaf = leaf: {
+    name = relativeName leaf.dataset;
+    value = {
+      type = "zfs_fs";
+      inherit (leaf) mountpoint;
+      options = {
+        # Explicit systemd mount units own ordering and failure handling. noauto
+        # prevents zfs-mount.service from racing those mandatory mounts.
+        canmount = "noauto";
+        exec = leaf.exec or "off";
+        devices = "off";
+        setuid = "off";
       };
-      models = [
-        {
-          id = "qwen3.6-moe:35b-a3b";
-          name = "Qwen 3.6 MoE (FastFlowLM)";
-          input = [ "text" ];
-          contextWindow = 32768;
-          maxTokens = 8192;
-          cost = {
-            input = 0;
-            output = 0;
-            cacheRead = 0;
-            cacheWrite = 0;
-          };
-        }
-      ];
     };
-  });
+  };
+
+  ownerParent = owner: {
+    name = "users/${owner}";
+    value = {
+      type = "zfs_fs";
+      options = {
+        mountpoint = "none";
+        canmount = "off";
+        quota = toString cfg.ownerQuotaBytes;
+        exec = "off";
+        devices = "off";
+        setuid = "off";
+      };
+    };
+  };
 in
 {
-  # Mirrored application state for services such as Jellyfin and Immich.
-  fileSystems."/srv/app-data" = {
-    device = "/dev/disk/by-label/BALAUR_APP_DATA";
-    fsType = "ext4";
-    options = [
-      "nofail"
-      "nodev"
-      "nosuid"
-      "x-systemd.device-timeout=30s"
-    ];
+  options.balaur.storage = {
+    ownerQuotaBytes = lib.mkOption {
+      type = lib.types.ints.positive;
+      readOnly = true;
+      default = 220000000000;
+      description = "Exact decimal-byte quota applied to each owner parent dataset.";
+    };
+
+    ownerWarningBytes = lib.mkOption {
+      type = lib.types.ints.positive;
+      readOnly = true;
+      default = 180000000000;
+      description = "Exact decimal-byte owner usage threshold consumed by later monitoring policy.";
+    };
+
+    protectedLeafDatasets = lib.mkOption {
+      type = lib.types.listOf (lib.types.strMatching "^tank/.+");
+      readOnly = true;
+      default = map (leaf: leaf.dataset) protectedLeaves;
+      description = "Explicit non-recursive allowlist for later snapshots and backups.";
+    };
+
+    disposableDatasets = lib.mkOption {
+      type = lib.types.listOf (lib.types.strMatching "^tank/disposable/.+");
+      readOnly = true;
+      default = map (leaf: leaf.dataset) disposableLeaves;
+      description = "Explicit datasets excluded from snapshots and backups by later policy.";
+    };
   };
 
-  # Mirrored personal data, including the local photo archive.
-  fileSystems."/srv/personal" = {
-    device = "/dev/disk/by-label/BALAUR_PERSONAL";
-    fsType = "ext4";
-    options = [
-      "nofail"
-      "nodev"
-      "nosuid"
-      "noexec"
-      "x-systemd.device-timeout=30s"
+  config = {
+    assertions = [
+      {
+        assertion = cfg.ownerWarningBytes < cfg.ownerQuotaBytes;
+        message = "the owner storage warning must remain below the owner quota";
+      }
+      {
+        assertion = lib.intersectLists cfg.protectedLeafDatasets cfg.disposableDatasets == [ ];
+        message = "protected and disposable ZFS dataset lists must remain disjoint";
+      }
+    ];
+
+    disko.devices.zpool.tank = {
+      # ashift is fixed at pool creation. 4 KiB sectors are the conservative
+      # choice for both current NVMe devices and likely replacement media.
+      options.ashift = "12";
+
+      # Keep the pool root and all structural datasets unmounted. Leaf datasets
+      # below receive explicit mountpoints and inherit these low-risk defaults.
+      rootFsOptions = {
+        mountpoint = "none";
+        canmount = "off";
+        compression = "lz4";
+        checksum = "on";
+        xattr = "sa";
+        acltype = "posixacl";
+        atime = "off";
+        devices = "off";
+        setuid = "off";
+      };
+
+      datasets = builtins.listToAttrs (
+        [
+          {
+            name = "users";
+            value = {
+              type = "zfs_fs";
+              options = {
+                mountpoint = "none";
+                canmount = "off";
+                exec = "off";
+                devices = "off";
+                setuid = "off";
+              };
+            };
+          }
+          (ownerParent "alex")
+          (ownerParent "andreea")
+          {
+            name = "disposable";
+            value = {
+              type = "zfs_fs";
+              options = {
+                mountpoint = "none";
+                canmount = "off";
+                exec = "off";
+                devices = "off";
+                setuid = "off";
+              };
+            };
+          }
+        ]
+        ++ map mkLeaf protectedLeaves
+        ++ map mkLeaf disposableLeaves
+      );
+    };
+
+    # OpenZFS reads this module parameter when NixOS loads zfs in the initrd.
+    # The unsuffixed value is exactly 8 * 1024^3 bytes.
+    boot.kernelParams = [ "zfs.zfs_arc_max=8589934592" ];
+
+    # Issue 07 creates Andreea and owns her mounts. Only paths whose owner
+    # already exists are adjusted here, after local ZFS mounts are available.
+    systemd.tmpfiles.rules = [
+      "d /home/alex 0700 alex users -"
+      "d /srv/people/alex/apps 0700 alex users -"
     ];
   };
-
-  # Independent, non-redundant storage for replaceable media.
-  fileSystems."/srv/media/ssd0" = {
-    device = "/dev/disk/by-label/BALAUR_MEDIA_0";
-    fsType = "ext4";
-    options = [
-      "nofail"
-      "nodev"
-      "nosuid"
-      "noexec"
-    ];
-  };
-
-  fileSystems."/srv/media/ssd1" = {
-    device = "/dev/disk/by-label/BALAUR_MEDIA_1";
-    fsType = "ext4";
-    options = [
-      "nofail"
-      "nodev"
-      "nosuid"
-      "noexec"
-    ];
-  };
-
-  # Keep the USB backup offline except while Borg is creating a daily snapshot.
-  fileSystems."/mnt/balaur-backup" = {
-    device = "/dev/disk/by-label/BALAUR_BACKUP";
-    fsType = "ext4";
-    options = [
-      "noauto"
-      "nofail"
-      "nodev"
-      "nosuid"
-      "noexec"
-      "x-systemd.device-timeout=10s"
-    ];
-  };
-
-  systemd.tmpfiles.rules = [
-    "d /srv/secrets 0700 root root -"
-    "d /srv/app-data 2775 root media -"
-    "Z /srv/app-data/prowlarr - prowlarr prowlarr -"
-    "d /srv/app-data/fastflowlm 0750 fastflowlm fastflowlm -"
-    "d /srv/app-data/fastflowlm/models 0750 fastflowlm fastflowlm -"
-    "d /srv/media/ssd0/downloads 2775 qbittorrent media -"
-    "d /srv/media/ssd0/downloads/incomplete 2775 qbittorrent media -"
-    "d /srv/media/ssd0/downloads/complete 2775 qbittorrent media -"
-    "d /srv/media/ssd0/library 2775 alex media -"
-    "d /srv/media/ssd0/library/movies 2775 alex media -"
-    "d /srv/media/ssd1/library 2775 alex media -"
-    "d /srv/media/ssd1/library/tv 2775 alex media -"
-    "d /srv/media/ssd1/library/music 2775 alex media -"
-    "d /srv/personal 2775 alex media -"
-    "d /srv/media 2775 root media -"
-    "d /srv/media/ssd0 2775 root media -"
-    "d /srv/media/ssd1 2775 root media -"
-    "d /mnt/balaur-backup 0700 root root -"
-    "d /home/alex/.pi 0755 alex users -"
-    "d /home/alex/.pi/agent 0755 alex users -"
-    "d /home/alex/.pi/agent/extensions 0755 alex users -"
-    "L+ /home/alex/.pi/agent/models.json - - - - ${piFastFlowLMModels}"
-    "L+ /home/alex/.pi/agent/extensions/pi-subagents - - - - ${piSubagentsPackage}/lib/node_modules/@tintinweb/pi-subagents"
-    "L+ /home/alex/.pi/agent/extensions/pi-web-access - - - - ${piWebAccessPackage}/lib/node_modules/pi-web-access"
-  ];
 }

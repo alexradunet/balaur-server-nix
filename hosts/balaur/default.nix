@@ -9,6 +9,7 @@
     ../../modules/access.nix
     ../../modules/networking.nix
     ../../modules/packages.nix
+    ../../modules/storage.nix
   ];
 
   networking = {
