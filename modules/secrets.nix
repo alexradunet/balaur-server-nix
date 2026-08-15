@@ -48,11 +48,20 @@ let
     containerName:
     let
       container = config.containers.${containerName};
+      policyName =
+        if builtins.hasAttr containerName cfg.policies then
+          containerName
+        else if lib.hasSuffix "-personal" containerName then
+          lib.removeSuffix "-personal" containerName
+        else
+          null;
       expectedOwnerRoot =
         if
-          builtins.hasAttr containerName cfg.policies && cfg.policies.${containerName}.scope == "owner"
+          policyName != null
+          && builtins.hasAttr policyName cfg.policies
+          && cfg.policies.${policyName}.scope == "owner"
         then
-          cfg.policies.${containerName}.runtimeDirectory
+          cfg.policies.${policyName}.runtimeDirectory
         else
           null;
     in

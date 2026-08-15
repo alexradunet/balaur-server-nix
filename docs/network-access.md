@@ -28,9 +28,10 @@ serves these exact private A records at `192.168.50.2`:
 
 - `balaur.home.arpa`
 - `notes.alex.home.arpa`, `paperless.alex.home.arpa`,
-  `budget.alex.home.arpa`, `chat.alex.home.arpa`
+  `budget.alex.home.arpa`, `chat.alex.home.arpa`, `importer.alex.home.arpa`
 - `notes.andreea.home.arpa`, `paperless.andreea.home.arpa`,
-  `budget.andreea.home.arpa`, `chat.andreea.home.arpa`
+  `budget.andreea.home.arpa`, `chat.andreea.home.arpa`,
+  `importer.andreea.home.arpa`
 - `home-assistant.home.arpa`, `jellyfin.home.arpa`,
   `downloads.home.arpa`
 
@@ -103,13 +104,38 @@ internal CA. HTTP exists only to redirect the host health URL; HTTP/3 and the
 local admin API are disabled, so UDP 443 and TCP 2019 are not listening. There
 is no public ACME configuration.
 
-The current routes are:
+The production-default routes are:
 
 ```text
 https://balaur.home.arpa/health       ->  200 "balaur ok"
 https://home-assistant.home.arpa/     ->  127.0.0.1:8123
 https://jellyfin.home.arpa/           ->  127.0.0.1:8096
 ```
+
+Both personal stacks are fail-closed by default, so their DNS reservations do
+not imply live Caddy routes. After an owner's complete readiness gate is
+satisfied, Caddy adds only these routes to that owner's point-to-point
+container address:
+
+| Name | Alex backend | Andreea backend |
+| --- | --- | --- |
+| `notes.<owner>.home.arpa` | `10.231.12.2:8080` | `10.231.13.2:8080` |
+| `paperless.<owner>.home.arpa` | `10.231.12.2:28981` | `10.231.13.2:28981` |
+| `budget.<owner>.home.arpa` | `10.231.12.2:80` | `10.231.13.2:80` |
+| `chat.<owner>.home.arpa` | `10.231.12.2:3000` | `10.231.13.2:3000` |
+| `importer.<owner>.home.arpa` | `10.231.12.2:80` | `10.231.13.2:80` |
+
+The host sides are `10.231.12.1` and `10.231.13.1`. These are separate
+point-to-point links, not LAN bridges. Each container has only loopback and its
+dedicated veth; its firewall accepts application ports there while the host
+forward policy denies container-to-container,
+container-to-LAN, and unsolicited inbound forwarding. Egress is limited to
+router DNS, NTP, and HTTPS on the reviewed uplink. Raw app, PostgreSQL, Redis,
+and llama ports are not opened on trusted/global firewall allowlists.
+
+The Data Importer route is added only after that owner's fresh Firefly
+onboarding produces a personal access token and `importerReady` is enabled. It
+uses its own private hostname rather than a fragile path-prefix rewrite.
 
 Home Assistant and Jellyfin register through the typed
 `balaur.ingress.reverseProxies` seam. Their raw listeners are loopback-only and
@@ -121,8 +147,16 @@ reservation only: its Caddy route and loopback qBittorrent proxy remain absent
 while the production qBittorrent credential gate is false.
 
 The registration seam accepts only an approved household name and a private
-backend address/port. Backend ports are never added to the firewall by
+backend address/port. Backend ports are never added to the LAN firewall by
 registration.
+
+After the physical llama benchmark, each ready owner container independently
+gains one systemd socket forwarder when that owner's key is available. It
+listens only on that owner's host-side point-to-point address at TCP 8081 and forwards
+to `127.0.0.1:8081`; host firewall rules admit only the matching source
+container. Open WebUI receives only the key inside its own read-only owner
+secret root. There is no bridge-wide listener, raw Caddy route, combined key
+file bind, or production forwarder while llama readiness is false.
 
 Caddy creates the CA material itself on first start. Never manually generate or
 copy its private key. After an authorized deployment, an administrator may

@@ -12,6 +12,7 @@
     ../../modules/home-assistant.nix
     ../../modules/media.nix
     ../../modules/llama.nix
+    ../../modules/personal-containers.nix
     ../../modules/packages.nix
     ../../modules/storage.nix
   ];

@@ -151,21 +151,6 @@ in
       };
     };
 
-    issue12ContainerAccessContract = lib.mkOption {
-      type = lib.types.attrs;
-      readOnly = true;
-      default = {
-        gate = "issue-12-owner-container-addresses-and-firewall-rules";
-        transport = "one-private-forwarder-per-owner-to-loopback";
-        broadBridgeListenerAllowed = false;
-        caddyIngressAllowed = false;
-      };
-      description = ''
-        Narrow interface for issue 12. That issue must allocate stable private
-        addresses, one source-restricted owner forwarder each, and pass only
-        that owner's credential. This module exposes no container listener.
-      '';
-    };
   };
 
   config = lib.mkMerge [
@@ -184,12 +169,6 @@ in
               && cfg.readiness.ownerApiKeyFiles.alex != cfg.readiness.ownerApiKeyFiles.andreea
             );
           message = "Enabling llama requires one /srv/models preset, distinct owner-policy API key files, and a benchmark-derived MemoryHigh value";
-        }
-        {
-          assertion =
-            !(config.balaur.ingress.reverseProxies ? "chat.alex.home.arpa")
-            && !(config.balaur.ingress.reverseProxies ? "chat.andreea.home.arpa");
-          message = "The raw llama API must not be registered as household Caddy ingress before issue 12 owner containers";
         }
       ];
 

@@ -113,14 +113,13 @@ The raw API binds only `127.0.0.1:8081`; systemd denies non-loopback network
 access, the global and trusted-interface firewalls do not open 8081, and no raw
 API Caddy route exists.
 
-Owner containers do not yet have addresses, so broad bridge binding would be an
-unreviewable privilege expansion. `issue12ContainerAccessContract` records the
-only accepted seam: issue 12 must create one private, source-restricted
-forwarder per owner to the loopback backend, pass only that owner's key into
-that owner's container, and add exact source/destination firewall rules. It may
-not create one broad bridge listener or expose the API through household Caddy
-ingress. Until those addresses and rules exist and are isolation-tested, owner
-container access—and production readiness—remains blocked.
+Issue 12 implements one source-restricted forwarder on each owner's private
+host-side container address, passes only that owner's key into the matching
+container, and enforces exact source/destination firewall rules. The forwarders
+exist only when both the llama benchmark gate and that owner's personal-stack
+gate are ready. There is no broad bridge listener or household Caddy ingress;
+production readiness remains blocked until the physical benchmark, owner keys,
+and container isolation checks pass.
 
 ## Human gates
 

@@ -33,10 +33,12 @@ let
     "paperless.alex.home.arpa"
     "budget.alex.home.arpa"
     "chat.alex.home.arpa"
+    "importer.alex.home.arpa"
     "notes.andreea.home.arpa"
     "paperless.andreea.home.arpa"
     "budget.andreea.home.arpa"
     "chat.andreea.home.arpa"
+    "importer.andreea.home.arpa"
     "home-assistant.home.arpa"
     "jellyfin.home.arpa"
     "downloads.home.arpa"
@@ -73,7 +75,11 @@ let
         && andreea.hashedPassword == "!"
         && andreea.hashedPasswordFile == null
         && andreea.shell == "${pkgs.shadow}/bin/nologin"
-        && andreea.extraGroups == [ "media" ]
+        &&
+          andreea.extraGroups == [
+            "media"
+            "paperless-consume-andreea"
+          ]
         && andreea.openssh.authorizedKeys.keys == [ ]
         && !(builtins.elem "wheel" andreea.extraGroups)
         && !(builtins.elem "networkmanager" andreea.extraGroups)

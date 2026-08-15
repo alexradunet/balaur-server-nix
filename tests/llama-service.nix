@@ -133,15 +133,8 @@ let
       assertion =
         !builtins.elem 8081 firewallPorts
         && !(readyConfig.balaur.ingress.reverseProxies ? "chat.alex.home.arpa")
-        && !(readyConfig.balaur.ingress.reverseProxies ? "chat.andreea.home.arpa")
-        &&
-          ready.issue12ContainerAccessContract == {
-            gate = "issue-12-owner-container-addresses-and-firewall-rules";
-            transport = "one-private-forwarder-per-owner-to-loopback";
-            broadBridgeListenerAllowed = false;
-            caddyIngressAllowed = false;
-          };
-      message = "the raw backend must have no LAN/Caddy ingress; owner forwarding remains an exact issue-12 gate";
+        && !(readyConfig.balaur.ingress.reverseProxies ? "chat.andreea.home.arpa");
+      message = "the raw backend must have no LAN or Caddy ingress";
     }
   ];
   failures = map (entry: entry.message) (builtins.filter (entry: !entry.assertion) assertions);

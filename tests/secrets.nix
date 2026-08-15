@@ -68,8 +68,24 @@ let
       message = "no encrypted payload, decrypted value, placeholder, or secret declaration may exist before human onboarding";
     }
     {
-      assertion = config.containers == { };
-      message = "no decrypted secret directory may be exposed globally to containers before issue 12";
+      assertion =
+        builtins.attrNames config.containers == [
+          "alex-personal"
+          "andreea-personal"
+        ]
+        &&
+          config.containers.alex-personal.bindMounts."/run/owner-secrets" == {
+            hostPath = "/run/balaur-secrets/owners/alex";
+            isReadOnly = true;
+            mountPoint = "/run/owner-secrets";
+          }
+        &&
+          config.containers.andreea-personal.bindMounts."/run/owner-secrets" == {
+            hostPath = "/run/balaur-secrets/owners/andreea";
+            isReadOnly = true;
+            mountPoint = "/run/owner-secrets";
+          };
+      message = "each declarative personal container may receive only its exact read-only owner runtime root";
     }
     {
       assertion =

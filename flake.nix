@@ -152,10 +152,48 @@
             inherit pkgs;
             config = readyHost.config;
           };
-        personal-containers = import ./tests/personal-containers.nix {
-          inherit pkgs;
-          config = self.nixosConfigurations.balaur.config;
-        };
+        personal-containers =
+          let
+            ownerReadiness =
+              owner:
+              let
+                root = "/run/balaur-secrets/owners/${owner}/personal";
+              in
+              {
+                ready = true;
+                importerReady = true;
+                openWebuiAdminEmail = "${owner}@home.arpa";
+                files = {
+                  paperlessAdminPassword = "${root}/paperless-admin-password";
+                  fireflyAppKey = "${root}/firefly-app-key";
+                  fireflyCronToken = "${root}/firefly-cron-token";
+                  openWebuiSecretKey = "${root}/open-webui-secret-key";
+                  openWebuiAdminPassword = "${root}/open-webui-admin-password";
+                  importerAccessToken = "${root}/importer-access-token";
+                  importerProxyPassword = "${root}/importer-proxy-password";
+                };
+              };
+            readyHost = self.nixosConfigurations.balaur.extendModules {
+              modules = [
+                {
+                  balaur.personalContainers.owners = {
+                    alex.readiness = ownerReadiness "alex";
+                    andreea.readiness = ownerReadiness "andreea";
+                  };
+                }
+              ];
+            };
+          in
+          import ./tests/personal-containers.nix {
+            inherit pkgs;
+            defaultConfig = self.nixosConfigurations.balaur.config;
+            readyConfig = readyHost.config;
+          };
+        personal-containers-vm = pkgs.testers.runNixOSTest (
+          import ./tests/personal-containers-vm.nix {
+            sopsModule = sops-nix.nixosModules.sops;
+          }
+        );
         backup = import ./tests/backup.nix {
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;

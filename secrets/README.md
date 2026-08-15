@@ -18,7 +18,7 @@ Perform these steps on a trusted machine, with backup media and terminals under 
 1. Generate one new dedicated age identity with `age-keygen`, writing it directly to protected offline storage under `umask 077`. Do not reuse an SSH key and do not paste the private identity into this repository, chat, shell history, or a ticket.
 2. Derive the public recipient from that offline identity with `age-keygen -y`. Keep the private identity offline; the recipient is public.
 3. Copy `.sops.yaml.example` to `.sops.yaml`. Replace the deliberately empty rules with three exact path rules for the future host, Alex, and Andreea encrypted files. Put only the real public recipient from step 2 in those rules. Do not invent or copy a sample recipient. Review and commit `.sops.yaml` because it contains public policy only.
-4. Create the three owner-separated files with `sops` only after each consuming module defines its exact schema. Issue 08 now reserves two host-authority Samba values (one password per owner), but no encrypted host file path or payload is declared yet. Confirm every eventual file has sops metadata and cannot be decrypted without the offline identity. Commit ciphertext only.
+4. Create the three owner-separated files with `sops` only after reviewing the consuming schemas. Issues 08, 09, 10, and 12 now reserve host/owner values, but no encrypted file path or payload is declared yet. Confirm every eventual file has sops metadata and cannot be decrypted without the offline identity. Commit ciphertext only.
 5. Provision a controlled copy of the same private identity to `/var/lib/sops-nix/key.txt` as `root:root` mode `0600`. Retain the recovery source offline and disconnected. Do not enable automatic key generation.
 6. Once the host secret schema declares Alex's password-hash runtime file, generate a strong new Alex password locally with the human present and create a yescrypt hash using an interactive, no-echo password prompt. Insert the hash directly through the `sops` editor; do not save either plaintext password or a decrypted/hash scratch file in the repository. Wire that runtime file to `users.users.alex.hashedPasswordFile`.
 7. Build first. In an already authenticated recovery session, deploy only after the issue-16 gates authorize it. Open a second SSH session, verify Alex can run password-authenticated `sudo`, and keep the first session open until recovery access is proven.
@@ -120,6 +120,72 @@ forwarders, there is no owner container listener or bind. Never work around that
 gate by opening TCP 8081, binding a broad bridge address, or adding raw Caddy
 chat ingress. VM fixture strings are public test data and must never be reused.
 
+## Personal-container owner schemas
+
+`modules/personal-containers.nix` defines the exact future owner payload
+interface. Create the same keys separately in Alex's and Andreea's encrypted
+files; expose each only below
+`/run/balaur-secrets/owners/<owner>/personal/`:
+
+| Runtime input | Format and purpose |
+| --- | --- |
+| `paperlessAdminPassword` | Human-chosen, single-line value of at least 20 characters. It bootstraps only that owner's Paperless admin; never use a checked-in/test value. |
+| `fireflyAppKey` | Persistent Laravel key in exact `base64:<44-character-base64>` form generated from 32 random bytes. Restore requires the same key. |
+| `fireflyCronToken` | Exactly 32 URL-safe alphanumeric/underscore/hyphen characters. |
+| `openWebuiSecretKey` | Persistent single-line value of at least 32 characters for JWT/encrypted state. |
+| `openWebuiAdminPassword` | Human-chosen, single-line value of at least 20 characters for closed owner-admin bootstrap. |
+| `importerAccessToken` | At least 32 characters; created only after fresh Firefly onboarding. It gates the Data Importer separately. |
+| `importerProxyPassword` | Separate human-chosen value of at least 20 characters. Caddy hashes it at startup and requires owner basic authentication because Data Importer has no native user login. |
+
+The first five values, a human-selected non-secret `openWebuiAdminEmail`, and
+the protected version marker are required before an owner container may start.
+Open WebUI creates that owner admin without exposing public signup and then
+keeps signup disabled. `importerAccessToken` is a second gate. Caddy receives
+the Importer proxy password through `LoadCredential`; neither the plaintext nor
+generated bcrypt hash enters the Nix store. The Importer route does not exist
+before this second gate.
+
+Enable Banking credentials and configuration remain entirely deferred to issue
+17. This issue does not create an app, configure a connector, authorize a bank,
+schedule imports, or guess BT's PSU address.
+
+Each owner apps root must also contain `approved-versions` with exactly:
+
+```text
+trilium-server=0.102.2
+paperless-ngx=2.20.15
+firefly-iii=6.6.3
+firefly-iii-data-importer=2.3.4
+open-webui=0.11.0
+```
+
+This marker is non-secret but protected owner state. Change it only in the
+reviewed cold-snapshot migration sequence. Runtime files must be root-owned,
+regular (not symlink) files at mode `0400` or `0600`; the owner root remains
+`0700`. The host checks mountpoints, marker, path scope, ownership, and modes
+before starting a container. It rejects symlinked/non-canonical owner paths and
+verifies the Paperless inbox remains on the owner's home mount. Inside the
+container, a root oneshot receives the files with systemd `LoadCredential`,
+validates their shape, and creates service-owned mode-0400 files under
+`/run/personal-stack`. That shared parent is root-owned mode `0711`: application
+users may traverse to their known file, but cannot enumerate the directory or
+read another service's file.
+
+Trilium and Firefly retain fresh browser onboarding. Open WebUI uses the
+closed owner-admin bootstrap inputs above with signup disabled. No old
+database/media/SQLite path is restored. Open WebUI keeps durable SQLite state
+under the owner app root but redirects its `cache`, Hugging Face, embedding,
+tiktoken, and Whisper model paths into a nested tmpfs excluded from snapshots
+and backups. Inference remains disabled until issue 10 is physically ready;
+then only the matching owner's existing llama key is visible in its owner
+root.
+
+Human onboarding must now define real sops key paths matching these option
+fields, create fresh values privately, write the exact marker after a reviewed
+snapshot/update decision, set one owner's `readiness.ready`, complete that
+owner's browser onboarding, create the Firefly access token, and only then set
+`importerReady`. Do one owner at a time. Do not copy values between owners.
+
 ## Why there is no credential wizard yet
 
-A wizard is intentionally not authored at this stage. The encrypted file paths and secret key schema do not exist, so a script would have nowhere safe and reviewable to write the password hash or payloads. Author the wizard from the repository wizard template only after those declarations exist; it must use hidden input, avoid printing values, write only via `sops`, pass `bash -n`/`shellcheck`, and never be run by an agent.
+A wizard is intentionally not authored at this stage. The consuming schemas now exist, but the human age recipient, `.sops.yaml`, encrypted file paths, and reviewed sops declarations do not. A script still has nowhere authorized to write payloads. Author the wizard from the repository wizard template only after those human decisions; it must use hidden input, avoid printing values, write only via `sops`, pass `bash -n`/`shellcheck`, and never be run by an agent.
