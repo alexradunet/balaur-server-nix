@@ -32,15 +32,6 @@
     memoryPercent = 25;
   };
 
-  # Monitor NVMe health in addition to mdmonitor's RAID state monitoring.
-  services.smartd = {
-    enable = true;
-    autodetect = true;
-    notifications.mail.enable = false;
-    notifications.systembus-notify.enable = false;
-    notifications.x11.enable = false;
-  };
-
   # Gives us nmcli + nmtui, including an easy Wi-Fi wizard.
   networking.networkmanager.enable = true;
 

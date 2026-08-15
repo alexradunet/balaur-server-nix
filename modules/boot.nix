@@ -11,12 +11,7 @@
 
   # Root is assembled in stage 1. Disko also enables swraid from the md device,
   # but keeping this explicit makes the boot requirement visible here.
-  boot.swraid = {
-    enable = true;
-    mdadmConf = ''
-      MAILADDR root
-    '';
-  };
+  boot.swraid.enable = true;
 
   # ZFS support is available in the initrd for recovery, while the data-only
   # tank pool is imported normally in stage 2. Forced imports stay disabled.

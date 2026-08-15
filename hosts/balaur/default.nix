@@ -15,6 +15,7 @@
     ../../modules/personal-containers.nix
     ../../modules/packages.nix
     ../../modules/storage.nix
+    ../../modules/monitoring.nix
   ];
 
   networking = {

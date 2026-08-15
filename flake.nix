@@ -202,6 +202,7 @@
           inherit pkgs;
           config = self.nixosConfigurations.balaur.config;
         };
+        monitoring-vm = pkgs.testers.runNixOSTest (import ./tests/monitoring-vm.nix);
         pi = piPackage;
         pi-subagents = piSubagentsPackage;
         pi-web-access = piWebAccessPackage;
