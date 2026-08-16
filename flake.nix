@@ -203,6 +203,7 @@
           config = self.nixosConfigurations.balaur.config;
         };
         monitoring-vm = pkgs.testers.runNixOSTest (import ./tests/monitoring-vm.nix);
+        runbooks = import ./tests/runbooks.nix { inherit pkgs; };
         pi = piPackage;
         pi-subagents = piSubagentsPackage;
         pi-web-access = piWebAccessPackage;

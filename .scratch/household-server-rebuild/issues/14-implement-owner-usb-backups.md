@@ -25,3 +25,5 @@ VM tests cover wrong UUID/label, existing mount, Borg/verify failure, owner rest
 Observed identities for both new USB devices and the SMTP relay/alert destination from issue 02.
 
 ## Comments
+
+- 2026-08-16: The Owner explicitly deferred this ticket because the two planned nominal 256 GB owner USB devices have not been purchased. Keep `Status: needs-info`; do not invent device identities, implement an operational workflow against placeholders, provision the attached preserved SanDisk `BALAUR_BACKUP`, or weaken the rebuild's recovery gates. Resume with a read-only inventory after both new devices exist.

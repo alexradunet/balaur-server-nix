@@ -24,19 +24,21 @@ This keeps the current single-host flake simple while making features reusable
 when another host is added. A full flake-parts/import-tree top-level module tree
 can be introduced later if the repository grows beyond this host.
 
-## Deploy
+## Build status and runbooks
 
-Apply the configuration from the repository root:
-
-```sh
-sudo nixos-rebuild switch --flake .#balaur
-```
-
-Evaluate the complete system configuration without activating it:
+Do not deploy or run a generated disko script yet. The current safe interface is evaluation/build only:
 
 ```sh
-nix eval .#nixosConfigurations.balaur.config.system.build.toplevel.drvPath --raw
+nix eval path:$PWD#nixosConfigurations.balaur.config.system.build.toplevel.drvPath --raw
 ```
+
+Draft operational procedures are under:
+
+- [`docs/runbooks/install.md`](docs/runbooks/install.md) — pre-install observations and destructive abort boundary;
+- [`docs/runbooks/update.md`](docs/runbooks/update.md) — deliberate host and owner-stack updates;
+- [`docs/runbooks/recovery.md`](docs/runbooks/recovery.md) — failure decision trees and offline recovery manifest.
+
+They are intentionally incomplete while owner USB backups, production secrets, installer media, and physical issue-16 recovery rehearsals are outstanding. The install runbook contains no authorized destructive invocation.
 
 ## Tests
 
@@ -53,7 +55,11 @@ Build the complete host system without creating a `result` symlink:
 nix build .#nixosConfigurations.balaur.config.system.build.toplevel --no-link
 ```
 
-## Data Storage
+## Legacy pre-rebuild documentation — do not execute
+
+Everything below this heading describes the preserved pre-rebuild implementation. Its disk, USB, service, port, desktop, and deployment commands are obsolete and must not be run. Issue 18 owns deliberate reconciliation/removal after human onboarding.
+
+### Data Storage
 
 After the 128 GiB OS RAID1, space on both NVMe drives is divided into
 125 GiB of mirrored application data, 100 GiB of mirrored personal data, and
@@ -67,107 +73,11 @@ for replaceable media. Downloads use only `/srv/media/ssd0`.
 | `/srv/media/ssd0` | ~577 GiB | none |
 | `/srv/media/ssd1` | ~577 GiB | none |
 
-Provision this layout once. **The following commands destroy both existing `p3`
-partitions.** Confirm that they are the unused 802.5 GiB partitions before
-continuing. Do not change partitions 1 or 2; they contain EFI and the OS RAID.
+The obsolete partitioning, formatting, and md creation commands were removed from this branch so they cannot be copied accidentally. They remain recoverable from `wip/pre-household-rebuild` for issue-18 archaeology only. The current layout authority is `hosts/balaur/disko.nix`, but its generated scripts are also forbidden until `docs/runbooks/install.md` and issue 16 authorize execution.
 
-```sh
-sudo nixos-rebuild switch --flake .#balaur
-lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
+### USB Backup
 
-for disk in /dev/nvme0n1 /dev/nvme1n1; do
-  sudo sgdisk --delete=3 \
-    --new=3:0:+125G --typecode=3:fd00 --change-name=3:APP_DATA_RAID \
-    --new=4:0:+100G --typecode=4:fd00 --change-name=4:PERSONAL_RAID \
-    --new=5:0:0 --typecode=5:8300 --change-name=5:MEDIA \
-    "$disk"
-done
-sudo partprobe /dev/nvme0n1 /dev/nvme1n1
-
-sudo mdadm --create /dev/md/app-data --metadata=1.2 --level=1 \
-  --raid-devices=2 /dev/nvme0n1p3 /dev/nvme1n1p3
-sudo mdadm --create /dev/md/personal --metadata=1.2 --level=1 \
-  --raid-devices=2 /dev/nvme0n1p4 /dev/nvme1n1p4
-
-sudo mkfs.ext4 -L BALAUR_APP_DATA /dev/md/app-data
-sudo mkfs.ext4 -L BALAUR_PERSONAL /dev/md/personal
-sudo mkfs.ext4 -L BALAUR_MEDIA_0 /dev/nvme0n1p5
-sudo mkfs.ext4 -L BALAUR_MEDIA_1 /dev/nvme1n1p5
-sudo nixos-rebuild switch --flake .#balaur
-```
-
-Verify the resulting filesystems and initial RAID synchronization:
-
-```sh
-findmnt /srv/app-data /srv/personal /srv/media/ssd0 /srv/media/ssd1
-cat /proc/mdstat
-sudo mdadm --detail /dev/md/app-data
-sudo mdadm --detail /dev/md/personal
-```
-
-The setgid directories and shared `media` group allow `alex` and future
-Jellyfin or Immich service accounts to share files without making them
-world-writable. RAID is not a backup; Google Photos remains the off-site copy
-of the personal photo library.
-
-## USB Backup
-
-The server creates an encrypted Borg snapshot of `/home/alex`, application
-state, personal data, Home Assistant state, and host-local secrets once per day.
-The large FastFlowLM model cache is excluded because it can be downloaded again.
-The USB filesystem is mounted only for the backup and is unmounted afterward,
-including when the backup fails. Retention is 7 daily, 4 weekly, and 6 monthly
-snapshots.
-
-Before creating an archive, the job pauses Trilium so its SQLite database and
-attachments are captured consistently, then resumes it before Borg prunes and
-compacts the repository, including after failures. Trilium also keeps its own
-periodic database backups enabled. Other application databases are still
-filesystem snapshots of live services; use Home Assistant's native backup as an
-additional safeguard and perform restore tests before treating this as a complete
-disaster-recovery plan.
-
-Provision the USB stick once. Confirm its device path carefully with `lsblk` before
-formatting; the following command destroys that partition's existing contents:
-
-```sh
-sudo mkfs.ext4 -L BALAUR_BACKUP /dev/sdX1
-sudo install -d -m 0700 /var/lib/balaur-backup
-sudo sh -c 'umask 077; head -c 48 /dev/urandom | base64 > /var/lib/balaur-backup/passphrase'
-```
-
-Store a copy of `/var/lib/balaur-backup/passphrase` somewhere secure outside this
-server. The Borg repository cannot be recovered without it. Then deploy and test the
-backup immediately:
-
-```sh
-sudo nixos-rebuild switch --flake .#balaur
-sudo systemctl start balaur-backup.service
-sudo journalctl -u balaur-backup.service
-```
-
-The first run initializes `/mnt/balaur-backup/borg`. Check timer scheduling and
-verify that the stick is no longer mounted after a run with:
-
-```sh
-systemctl list-timers balaur-backup.timer
-findmnt /mnt/balaur-backup
-```
-
-After the first successful run, mount the stick and export Borg's repository key.
-Keep that export together with the passphrase copy, outside the server:
-
-```sh
-sudo mount /mnt/balaur-backup
-sudo env BORG_PASSCOMMAND='cat /var/lib/balaur-backup/passphrase' \
-  borg key export /mnt/balaur-backup/borg /var/lib/balaur-backup/repository-key
-sudo umount /mnt/balaur-backup
-```
-
-The invariant check covers the host's boot and filesystem layout, backup safety,
-SSH and firewall policy, loopback-only services, and systemd sandboxing. The
-dashboard check starts the real Node server and verifies its HTTP
-routes, security headers, metrics response, and service status payload.
+The obsolete single-USB formatting, secret-generation, Borg, mount, and service commands were removed. They must not be reconstructed or applied to the preserved `BALAUR_BACKUP` device. Owner-specific USB backup work is deferred under issue 14; current policy and blockers are in `docs/runbooks/recovery.md`.
 
 ## LAN Address
 
